@@ -319,9 +319,19 @@
     boardEl.style.setProperty('--xq-cell', cell + 'px');
   }
 
+  /* 黑方视角：整盘转 180°，自己的子永远在下面 */
+  function shouldFlip() { return S.mode === 'online' && S.mySide === BLACK; }
+
+  function mirrorIdx(idx) {
+    var x = X.xOf(idx);
+    var y = X.yOf(idx);
+    return (10 - 1 - y) * 9 + (9 - 1 - x);
+  }
+
   function placeEl(el, idx) {
-    el.style.left = 'calc(var(--xq-cell) * ' + (0.5 + X.xOf(idx)) + ')';
-    el.style.top = 'calc(var(--xq-cell) * ' + (0.5 + X.yOf(idx)) + ')';
+    var i = shouldFlip() ? mirrorIdx(idx) : idx;
+    el.style.left = 'calc(var(--xq-cell) * ' + (0.5 + X.xOf(i)) + ')';
+    el.style.top = 'calc(var(--xq-cell) * ' + (0.5 + X.yOf(i)) + ')';
   }
 
   function isKingOfSide(ch, side) {
@@ -439,6 +449,7 @@
   }
 
   function draw(rebuild) {
+    if (boardEl && boardEl.classList) boardEl.classList.toggle('is-flipped', shouldFlip());
     if (rebuild) rebuildPieces(); else syncPieces();
     renderMarks();
     renderTargets();
@@ -526,20 +537,39 @@
     else setDetail('你执' + sideName(S.mySide) + '，等对方走棋。');
   }
 
-  function finishRound(result) {
+  /* 比分按「房主 / 访客」传，接收方再翻回自己的视角，两边看到的才对得上 */
+  function scoreForWire() {
+    return S.role === 'host'
+      ? { host: S.score.me, guest: S.score.opp, draw: S.score.draw }
+      : { host: S.score.opp, guest: S.score.me, draw: S.score.draw };
+  }
+
+  function scoreFromWire(w) {
+    if (!w || typeof w.host !== 'number' || typeof w.guest !== 'number') return;
+    var host = w.host || 0;
+    var guest = w.guest || 0;
+    var draw = w.draw || 0;
+    S.score = S.role === 'host'
+      ? { me: host, draw: draw, opp: guest }
+      : { me: guest, draw: draw, opp: host };
+    renderScore();
+  }
+
+  function finishRound(result, noScore) {
     S.over = true;
+    S.winner = result.winner || null;
     clearSelection();
 
     if (result.winner === S.mySide) {
-      S.score.me++;
+      if (!noScore) S.score.me++;
       setStatus('你赢了', 'win');
       setDetail('你执' + sideName(S.mySide) + '获胜。' + reasonText(result.reason, false));
     } else if (result.winner === S.oppSide) {
-      S.score.opp++;
+      if (!noScore) S.score.opp++;
       setStatus('对方赢了', 'lose');
       setDetail('对方获胜。' + reasonText(result.reason, true));
     } else {
-      S.score.draw++;
+      if (!noScore) S.score.draw++;
       setStatus('和棋', 'wait');
       setDetail(reasonText(result.reason, false));
     }
@@ -611,7 +641,7 @@
     msg.f = ME_ID;
     msg.r = S.code;
     try {
-      S.client.publish(TOPIC_ROOT + S.code, JSON.stringify(msg), { qos: 0 });
+      S.client.publish(TOPIC_ROOT + S.code, JSON.stringify(msg), { qos: 1 });
     } catch (err) {}
   }
 
@@ -650,8 +680,8 @@
       clearTimeout(fallback);
       S.connected = true;
       setConn('wait', '等待中');
-      client.subscribe(TOPIC_ROOT + S.code, { qos: 0 });
-      publish({ t: 'hello', role: S.role, round: S.round, total: S.total });
+      client.subscribe(TOPIC_ROOT + S.code, { qos: 1 });
+      publish({ t: 'hello', role: S.role, round: S.round, total: S.total, moves: S.movesMade });
       startPing();
       setNotice('');
     });
@@ -698,14 +728,15 @@
   function publishState() {
     publish({
       t: 'state', round: S.round, board: X.boardToString(S.board), turn: S.turn,
-      last: S.last, moves: S.movesMade, total: S.total, score: S.score
+      last: S.last, moves: S.movesMade, total: S.total, score: scoreForWire(), over: !!S.over
     });
   }
 
   function applyState(msg) {
     if (typeof msg.board !== 'string' || msg.board.length < TOTAL) return;
-    if (S.role === 'guest' && msg.total) setTotal(msg.total);
+    if (msg.total) setTotal(msg.total);
     S.round = typeof msg.round === 'number' ? msg.round : S.round;
+    scoreFromWire(msg.score);
     assignSides();
     S.board = X.boardFromString(msg.board);
     S.turn = msg.turn === BLACK ? BLACK : RED;
@@ -716,7 +747,7 @@
     draw(true);
     const st = X.status(S.board, S.turn);
     if (st.over) {
-      finishRound({ winner: S.turn === S.mySide ? S.oppSide : S.mySide, reason: st.reason });
+      finishRound({ winner: S.turn === S.mySide ? S.oppSide : S.mySide, reason: st.reason }, true);
       return;
     }
     if (S.turn === S.mySide) {
@@ -732,7 +763,22 @@
     if (!msg || msg.f === ME_ID) return;
     if (msg.r && msg.r !== S.code) return;
 
+
     S.lastSeen = Date.now();
+
+    // 双方角色撞车（比如都刷新成了访客）：盘面空的一方直接接手房主，免得两边都动不了
+    if (msg.role && msg.f && msg.role === S.role && !S.over && S.movesMade === 0) {
+      const peerMoves = typeof msg.moves === 'number' ? msg.moves : 0;
+      const wantHost = peerMoves > 0 ? true : ME_ID < msg.f;
+      if (wantHost !== (S.role === 'host')) {
+        S.role = wantHost ? 'host' : 'guest';
+        rememberRole(S.code, S.role);
+        assignSides();
+        resetRound();
+        setNotice(wantHost ? '两边角色撞车了，已自动调成你执红。' : '两边角色撞车了，已自动调成你执黑。', 'info');
+      }
+    }
+
     if (!S.oppOnline && msg.t !== 'bye') {
       S.oppOnline = true;
       setConn('on', '在线');
@@ -744,7 +790,7 @@
 
     switch (msg.t) {
       case 'hello':
-        publish({ t: 'here', role: S.role, round: S.round, total: S.total });
+        publish({ t: 'here', role: S.role, round: S.round, total: S.total, moves: S.movesMade });
         if (S.movesMade > 0) publishState();
         break;
 
@@ -862,6 +908,21 @@
     );
   }
 
+  /* ---------- 角色记忆：刷新后还是同一方，且不会跟着链接传给别人 ---------- */
+  const ROLE_KEY = 'xq-role-';
+
+  function rememberRole(code, role) {
+    try { sessionStorage.setItem(ROLE_KEY + code, role); } catch (err) {}
+  }
+
+  function recallRole(code) {
+    try { return sessionStorage.getItem(ROLE_KEY + code) || ''; } catch (err) { return ''; }
+  }
+
+  function forgetRole(code) {
+    try { sessionStorage.removeItem(ROLE_KEY + code); } catch (err) {}
+  }
+
   function startOnline(code, role) {
     S.mode = 'online';
     S.code = code;
@@ -946,15 +1007,17 @@
   function createRoom() {
     S.total = readTotal();
     startOnline(makeCode(), 'host');
+    rememberRole(S.code, 'host');
     if (isPublicUrl()) {
       try { history.replaceState(null, '', '?r=' + S.code); } catch (err) {}
     }
   }
 
-  function joinRoom(raw) {
+  function joinRoom(raw, asRole) {
     const code = String(raw || '').trim().toUpperCase();
     if (code.length !== 5) { setNotice('房间码是 5 位字母/数字。'); return; }
-    startOnline(code, 'guest');
+    startOnline(code, asRole === 'host' ? 'host' : 'guest');
+    rememberRole(code, asRole === 'host' ? 'host' : 'guest');
     if (isPublicUrl()) {
       try { history.replaceState(null, '', '?r=' + code); } catch (err) {}
     }
@@ -968,6 +1031,7 @@
     S.connected = false;
     S.oppOnline = false;
     S.mode = 'lobby';
+    forgetRole(S.code);
     S.code = '';
     clearChat();
     updateChatSend();
@@ -1094,7 +1158,7 @@
     const room = (params.get('r') || '').toUpperCase();
 
     if (room && room.length === 5) {
-      joinRoom(room);
+      joinRoom(room, recallRole(room));
       return;
     }
     lobbyEl.hidden = false;
