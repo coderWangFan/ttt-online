@@ -54,6 +54,9 @@
   const chatToggleEl = $('chat-toggle');
   const chatPeekEl = $('chat-peek');
   const chipEl = $('code-chip');
+  const totalPickEl = $('total-pick');
+  const totalInputEl = $('total-input');
+  const totalCustomRowEl = $('total-custom-row');
 
 
   /* ============================ 状态 ============================ */
@@ -75,6 +78,8 @@
     lastSeen: 0,
     sentRematch: false,
     gotRematch: false,
+    total: 8,
+    matchOver: false,
     chat: [],
     client: null,
     connected: false,
@@ -150,11 +155,12 @@
     el.classList.add('bump');
   }
 
+  // 局数显示「已完成 / 总局数」
   function renderRounds() {
-    const now = String(S.round + 1);
     const done = String(S.score.me + S.score.draw + S.score.opp);
-    if (roundNowEl && roundNowEl.textContent !== now) { roundNowEl.textContent = now; bump(roundNowEl); }
+    const total = String(S.total || 8);
     if (roundDoneEl && roundDoneEl.textContent !== done) { roundDoneEl.textContent = done; bump(roundDoneEl); }
+    if (roundNowEl && roundNowEl.textContent !== total) { roundNowEl.textContent = total; bump(roundNowEl); }
     if (roundDoneEl) roundDoneEl.hidden = false;
     if (roundSlashEl) roundSlashEl.hidden = false;
   }
@@ -559,6 +565,9 @@
 
     renderScore();
     renderRounds();
+
+    // 打满总局数：本轮对局结束，按钮改成「再来一轮」
+    if (S.score.me + S.score.draw + S.score.opp >= S.total) S.matchOver = true;
     S.sentRematch = false;
     S.gotRematch = false;
     rematchBtn.hidden = false;
@@ -567,6 +576,15 @@
     rematchBtn.classList.remove('btn--ghost');
     shareBtn.classList.remove('btn--primary');
     shareBtn.classList.add('btn--ghost');
+
+    if (S.mode === 'online' && S.matchOver) {
+      rematchBtn.textContent = '再来一轮（清空比分）';
+      const verdict = S.score.me > S.score.opp ? '你赢下本轮'
+        : S.score.me < S.score.opp ? '对方赢下本轮' : '本轮打平';
+      setStatus('本轮对局结束', S.score.me > S.score.opp ? 'win' : S.score.me < S.score.opp ? 'lose' : 'wait');
+      setDetail('你 ' + S.score.me + ' · 平 ' + S.score.draw + ' · 对方 ' + S.score.opp + '，' + verdict +
+        '（共 ' + S.total + ' 局）点「再来一轮」清空比分重新开始。');
+    }
     // 局末：主按钮让位给「再来一局」
     draw();
   }
@@ -652,7 +670,7 @@
       S.connected = true;
       setConn('wait', '等待中');
       client.subscribe(TOPIC_ROOT + S.code, { qos: 0 });
-      publish({ t: 'hello', role: S.role, round: S.round });
+      publish({ t: 'hello', role: S.role, round: S.round, total: S.total });
       startPing();
       setNotice('');
     });
@@ -712,15 +730,17 @@
 
     switch (msg.t) {
       case 'hello':
-        publish({ t: 'here', role: S.role, round: S.round });
-        if (S.board.some(Boolean)) publish({ t: 'state', round: S.round, board: S.board, last: S.lastMove });
+        publish({ t: 'here', role: S.role, round: S.round, total: S.total });
+        if (S.board.some(Boolean)) publish({ t: 'state', round: S.round, board: S.board, last: S.lastMove, total: S.total, score: S.score });
         break;
 
       case 'here':
+        if (S.role === 'guest' && msg.total) setTotal(msg.total);
         break;
 
       case 'state':
         if (msg.round >= S.round && !S.board.some(Boolean) && Array.isArray(msg.board)) {
+          if (S.role === 'guest' && msg.total) setTotal(msg.total);
           S.round = msg.round;
           assignMarks();
           S.board = msg.board.slice(0, TOTAL);
@@ -798,7 +818,14 @@
   }
 
   function nextRound() {
-    S.round++;
+    if (S.matchOver) {
+      S.matchOver = false;
+      S.round = 0;
+      S.score = { me: 0, draw: 0, opp: 0 };
+      renderScore();
+    } else {
+      S.round++;
+    }
     resetRound();
   }
 
@@ -840,6 +867,9 @@
     S.code = code;
     S.role = role;
     S.round = 0;
+    S.score = { me: 0, draw: 0, opp: 0 };
+    S.matchOver = false;
+    renderScore();
     clearChat();
     updateChatSend();
     var narrow = false;
@@ -860,7 +890,40 @@
     requestAnimationFrame(layout);
   }
 
+  /* ============================ 总局数 ============================ */
+
+  let totalChoice = 8;   // 8 | 16 | 32 | custom
+
+  function syncTotalPicker() {
+    if (!totalPickEl) return;
+    const btns = totalPickEl.querySelectorAll ? totalPickEl.querySelectorAll('.seg-btn') : [];
+    Array.prototype.forEach.call(btns, function (b) {
+      const on = String(b.dataset.total) === String(totalChoice);
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (totalCustomRowEl) totalCustomRowEl.hidden = totalChoice !== 'custom';
+  }
+
+  function readTotal() {
+    if (totalChoice === 'custom') {
+      let v = parseInt(totalInputEl ? totalInputEl.value : '', 10);
+      if (!(v >= 1)) v = 8;
+      return Math.min(99, Math.max(1, v));
+    }
+    return parseInt(totalChoice, 10) || 8;
+  }
+
+  // 对手（房主）说了算：房主的总局数会同步过来
+  function setTotal(v) {
+    const n = parseInt(v, 10);
+    if (!(n >= 1)) return;
+    S.total = Math.min(99, n);
+    renderRounds();
+  }
+
   function createRoom() {
+    S.total = readTotal();
     startOnline(makeCode(), 'host');
     if (isPublicUrl()) {
       try { history.replaceState(null, '', '?r=' + S.code); } catch (err) {}
@@ -902,6 +965,18 @@
     $('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom($('code-input').value); });
     $('leave-btn').addEventListener('click', leaveRoom);
     rematchBtn.addEventListener('click', requestRematch);
+    if (totalPickEl) {
+      totalPickEl.addEventListener('click', function (e) {
+        let btn = e.target;
+        while (btn && btn !== totalPickEl && !(btn.classList && btn.classList.contains('seg-btn'))) btn = btn.parentNode;
+        if (!btn || btn === totalPickEl) return;
+        const raw = btn.dataset.total;
+        totalChoice = raw === 'custom' ? 'custom' : parseInt(raw, 10);
+        syncTotalPicker();
+        if (totalChoice === 'custom' && totalInputEl) { try { totalInputEl.focus(); } catch (err) {} }
+      });
+    }
+    syncTotalPicker();
 
     if (chipEl) {
       chipEl.addEventListener('click', () => {
