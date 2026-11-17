@@ -1,0 +1,528 @@
+/* ==========================================================================
+   棋 · 设计系统（iOS 风格）
+   浅色为默认，[data-theme="dark"] 切换深色
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f2f2f7;
+  --surface: #ffffff;
+  --surface-2: #f2f2f7;
+  --surface-3: #e8e8ed;
+
+  --label: #1d1d1f;
+  --label-2: #6e6e73;
+  --label-3: #a1a1a6;
+
+  --separator: rgba(60, 60, 67, .12);
+  --separator-2: rgba(60, 60, 67, .2);
+
+  --blue: #007aff;
+  --blue-hover: #0071eb;
+  --blue-soft: rgba(0, 122, 255, .12);
+  --orange: #ff9500;
+  --green: #34c759;
+  --red: #ff3b30;
+
+  --warn-soft: rgba(255, 149, 0, .12);
+  --warn-ink: #975a00;
+  --info-soft: rgba(0, 122, 255, .09);
+  --info-ink: #0059c8;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .04), 0 6px 18px rgba(0, 0, 0, .05);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, .05), 0 20px 44px rgba(0, 0, 0, .09);
+
+  --board-bg: #ffffff;
+  --board-line: rgba(60, 60, 67, .22);
+  --board-grid: rgba(60, 60, 67, .14);
+  --board-star: rgba(60, 60, 67, .38);
+  --stone-black: #1d1d1f;
+  --stone-black-edge: rgba(0, 0, 0, .55);
+  --stone-white: #ffffff;
+  --stone-white-edge: rgba(0, 0, 0, .16);
+
+  --r-card: 20px;
+  --r-btn: 13px;
+  --ease: cubic-bezier(.32, .72, 0, 1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --surface-3: #3a3a3c;
+
+  --label: #f5f5f7;
+  --label-2: #a1a1a6;
+  --label-3: #8e8e93;
+
+  --separator: rgba(255, 255, 255, .12);
+  --separator-2: rgba(255, 255, 255, .2);
+
+  --blue: #0a84ff;
+  --blue-hover: #349bff;
+  --blue-soft: rgba(10, 132, 255, .18);
+  --orange: #ff9f0a;
+  --green: #30d158;
+  --red: #ff453a;
+
+  --warn-soft: rgba(255, 159, 10, .16);
+  --warn-ink: #ffb340;
+  --info-soft: rgba(10, 132, 255, .14);
+  --info-ink: #6fb2ff;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .6), 0 8px 24px rgba(0, 0, 0, .45);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, .6), 0 22px 48px rgba(0, 0, 0, .55);
+
+  --board-bg: #1c1c1e;
+  --board-line: rgba(255, 255, 255, .18);
+  --board-grid: rgba(255, 255, 255, .17);
+  --board-star: rgba(255, 255, 255, .3);
+  --stone-black: #0a0a0b;
+  --stone-black-edge: rgba(255, 255, 255, .16);
+  --stone-white: #f5f5f7;
+  --stone-white-edge: rgba(0, 0, 0, .3);
+}
+
+/* ============================== 基础 ============================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: var(--label);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro SC",
+               "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: radial-gradient(120% 68% at 50% -18%, #ffffff 0%, rgba(255, 255, 255, 0) 62%), var(--bg);
+  transition: background-color .4s var(--ease), color .4s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-theme="dark"] body {
+  background: radial-gradient(120% 68% at 50% -18%, #1b1b1f 0%, rgba(0, 0, 0, 0) 62%), #000000;
+}
+
+.wrap {
+  width: min(100%, 480px);
+  margin: 0 auto;
+  padding: 18px 20px calc(28px + env(safe-area-inset-bottom));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============================== 顶栏 ============================== */
+
+.nav { display: flex; align-items: center; gap: 10px; height: 40px; }
+.nav .spacer { flex: 1; }
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--label);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  transition: transform .22s var(--ease), background-color .22s var(--ease), box-shadow .22s var(--ease);
+}
+.icon-btn:hover { background: var(--surface-2); }
+.icon-btn:active { transform: scale(.92); }
+.icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--blue-soft), var(--shadow-1); }
+
+.icon-btn svg { width: 17px; height: 17px; display: block; }
+
+/* 明暗切换图标 */
+.theme-btn svg { position: absolute; transition: opacity .28s var(--ease), transform .38s var(--ease); }
+[data-theme="light"] .i-moon, :root:not([data-theme="dark"]) .i-moon { opacity: 0; transform: rotate(-70deg) scale(.5); }
+[data-theme="dark"] .i-sun { opacity: 0; transform: rotate(70deg) scale(.5); }
+[data-theme="dark"] .i-moon { opacity: 1; transform: none; }
+.i-sun { opacity: 1; }
+.i-moon { opacity: 1; }
+
+/* 状态胶囊 */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--label-2);
+  white-space: nowrap;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--label-3);
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(52, 199, 89, .18); }
+.dot.wait { background: var(--orange); box-shadow: 0 0 0 3px rgba(255, 149, 0, .16); }
+
+/* ============================== 标题 ============================== */
+
+.title-block { display: grid; gap: 6px; margin-top: 2px; }
+.display {
+  margin: 0;
+  font-size: clamp(30px, 9vw, 40px);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.05;
+}
+.subtitle { margin: 0; font-size: 14px; color: var(--label-2); letter-spacing: -.01em; }
+
+/* ============================== 卡片 ============================== */
+
+.card {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-1);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.card h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
+.card p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--label-2); letter-spacing: -.005em; }
+
+/* ============================== 按钮 ============================== */
+
+.btn {
+  appearance: none;
+  border: 0;
+  height: 46px;
+  padding: 0 20px;
+  border-radius: var(--r-btn);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--label);
+  background: var(--surface-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  user-select: none;
+  transition: transform .2s var(--ease), background-color .2s var(--ease),
+              box-shadow .2s var(--ease), color .2s var(--ease);
+}
+.btn:hover { background: var(--surface-3); }
+.btn:active { transform: scale(.975); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--blue-soft); }
+
+.btn--primary {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 122, 255, .24);
+}
+.btn--primary:hover { background: var(--blue-hover); }
+.btn--primary:focus-visible { box-shadow: 0 6px 18px rgba(0, 122, 255, .24), 0 0 0 3px var(--blue-soft); }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--label-2);
+  box-shadow: inset 0 0 0 .5px var(--separator-2);
+  height: 42px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 16px;
+}
+.btn--ghost:hover { background: var(--surface-2); color: var(--label); }
+
+.btn--wide { width: 100%; }
+
+.btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
+
+/* ============================== 分段控件 ============================== */
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  transition: background-color .3s var(--ease);
+}
+.seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  height: 32px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label-2);
+  cursor: pointer;
+  transition: background-color .22s var(--ease), color .22s var(--ease), box-shadow .22s var(--ease);
+}
+.seg button:hover { color: var(--label); }
+.seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--label);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .1), 0 1px 1px rgba(0, 0, 0, .04);
+}
+.seg button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--blue-soft); }
+
+/* ============================== 输入 ============================== */
+
+.field {
+  appearance: none;
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: var(--r-btn);
+  border: .5px solid var(--separator-2);
+  background: var(--surface-2);
+  color: var(--label);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background-color .3s var(--ease);
+}
+.field::placeholder { color: var(--label-3); letter-spacing: .06em; font-weight: 400; text-transform: none; }
+.field:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-soft);
+  background: var(--surface);
+}
+
+.row { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 12px; }
+.row > .label { font-size: 13px; font-weight: 500; color: var(--label-2); }
+
+/* ============================== 比分 ============================== */
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.score { padding: 11px 8px 13px; text-align: center; }
+.score + .score { box-shadow: inset .5px 0 0 var(--separator); }
+.score dt { margin: 0; font-size: 11.5px; font-weight: 500; letter-spacing: .02em; color: var(--label-2); }
+.score dd {
+  margin: 3px 0 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.score.is-me dd { color: var(--blue); }
+.score.is-opp dd { color: var(--orange); }
+
+/* ============================== 状态区 ============================== */
+
+.status-wrap { display: grid; gap: 5px; text-align: center; min-height: 50px; align-content: center; }
+.status {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  transition: color .25s var(--ease);
+}
+.status[data-tone="win"] { color: var(--green); }
+.status[data-tone="lose"] { color: var(--orange); }
+.status[data-tone="wait"] { color: var(--label-2); }
+.detail {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--label-2);
+  letter-spacing: -.005em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================== 提示条 ============================== */
+
+.notice {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  overflow-wrap: anywhere;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+.notice[data-kind="info"] { background: var(--info-soft); color: var(--info-ink); }
+
+/* ============================== 其它 ============================== */
+
+.hint { margin: 0; text-align: center; font-size: 12px; line-height: 1.6; color: var(--label-3); }
+
+.room-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  letter-spacing: .14em;
+  color: var(--label);
+  font-weight: 600;
+}
+
+.actions { display: grid; gap: 10px; }
+.actions-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+
+/* ============================== 井字棋棋盘 ============================== */
+
+.ttt {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--board-grid);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-2);
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.ttt .cell {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 14%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color .18s var(--ease), opacity .3s var(--ease);
+}
+.ttt .cell:not(.filled):hover { background: var(--surface-2); }
+.ttt .cell:not(.filled):active { background: var(--surface-3); }
+.ttt .cell.filled { cursor: default; }
+.ttt .cell:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--blue-soft); }
+.ttt .cell svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.ttt .cell svg path,
+.ttt .cell svg circle { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+.ttt .cell.x svg path {
+  stroke: var(--blue);
+  stroke-width: 9;
+  stroke-dasharray: 68;
+  stroke-dashoffset: 68;
+  animation: draw .3s var(--ease) forwards;
+}
+.ttt .cell.x svg path:nth-child(2) { animation-delay: .11s; }
+.ttt .cell.o svg circle {
+  stroke: var(--orange);
+  stroke-width: 9;
+  stroke-dasharray: 164;
+  stroke-dashoffset: 164;
+  transform-origin: 50% 50%;
+  transform: rotate(-90deg);
+  animation: draw .42s var(--ease) forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+.ttt .cell.win { animation: pop .5s var(--ease); }
+.ttt .cell.x.win { background: var(--blue-soft); }
+.ttt .cell.o.win { background: rgba(255, 149, 0, .12); }
+@keyframes pop {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(.95); }
+}
+.ttt.is-over .cell:not(.filled) { opacity: .5; }
+
+/* ============================== 五子棋画布 ============================== */
+
+.board-wrap { width: 100%; }
+.gmk-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 22px;
+  background: var(--board-bg);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.gmk-canvas:focus-visible { outline: none; box-shadow: var(--shadow-2), 0 0 0 3px var(--blue-soft); }
+.gmk-canvas.is-over { cursor: default; }
+
+/* ============================== 入口页卡片 ============================== */
+
+.entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px 1fr 20px;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  text-decoration: none;
+  color: inherit;
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease), background-color .3s var(--ease);
+}
+.entry:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.entry:active { transform: scale(.99); }
+.entry:focus-visible { outline: none; box-shadow: var(--shadow-1), 0 0 0 3px var(--blue-soft); }
+
+.entry .icon {
+  width: 58px; height: 58px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  transition: background-color .3s var(--ease);
+}
+.entry .icon svg { width: 40px; height: 40px; }
+.entry .text { display: grid; gap: 3px; min-width: 0; }
+.entry .name {
+  font-size: 17px; font-weight: 650; letter-spacing: -.02em;
+  display: flex; align-items: center; gap: 8px;
+}
+.badge {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+  color: var(--blue); background: var(--blue-soft);
+  padding: 2px 7px; border-radius: 999px;
+}
+.entry .desc { font-size: 12.5px; line-height: 1.5; color: var(--label-2); }
+.chevron { color: var(--label-3); font-size: 17px; transition: transform .25s var(--ease), color .25s var(--ease); }
+.entry:hover .chevron { transform: translateX(2px); color: var(--label-2); }
+
+/* ============================== 无障碍 / 动效 ============================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .ttt .cell.x svg path, .ttt .cell.o svg circle { stroke-dashoffset: 0; }
+}
