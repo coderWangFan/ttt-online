@@ -333,8 +333,13 @@
     } catch (err) { /* 忽略瞬时失败 */ }
   }
 
-  function connectBroker() {
+  function connectBroker(attempt) {
+    // mqtt 库以 async 方式加载，先等它一下再判定失败
     if (typeof mqtt === 'undefined') {
+      if ((attempt || 0) < 25) {
+        setTimeout(function () { connectBroker((attempt || 0) + 1); }, 200);
+        return;
+      }
       setConn('', '连接库加载失败');
       setNotice('无法加载联机库（可能网络或公司代理拦截）。可以改用「链接接力」模式：下完一手把链接发对方。');
       return;
