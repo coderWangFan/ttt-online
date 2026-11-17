@@ -36,6 +36,14 @@
   const rematchBtn = $('rematch-btn');
   const shareBtn = $('share-btn');
   const scoreEls = { me: $('score-me'), draw: $('score-draw'), opp: $('score-opp') };
+  const roundNowEl = $('round-now');
+  const roundDoneEl = $('round-done');
+  const chatEl = $('chat');
+  const chatListEl = $('chat-list');
+  const chatEmptyEl = $('chat-empty');
+  const chatFormEl = $('chat-form');
+  const chatInputEl = $('chat-input');
+  const chatSendEl = $('chat-send');
 
   /* ============================ 状态 ============================ */
 
@@ -56,6 +64,7 @@
     lastSeen: 0,
     sentRematch: false,
     gotRematch: false,
+    chat: [],
     client: null,
     connected: false,
     pingTimer: null,
@@ -82,6 +91,9 @@
   function setStatus(text, tone) {
     statusEl.textContent = text;
     statusEl.dataset.tone = tone || 'idle';
+    statusEl.classList.remove('is-updating');
+    void statusEl.offsetWidth;
+    statusEl.classList.add('is-updating');
   }
 
   function setDetail(html) { detailEl.innerHTML = html; }
@@ -106,6 +118,69 @@
     scoreEls.me.textContent = S.score.me;
     scoreEls.draw.textContent = S.score.draw;
     scoreEls.opp.textContent = S.score.opp;
+  }
+
+  /* ============================ 局数 / 房间消息 ============================ */
+
+  function bump(el) {
+    if (!el) return;
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+  }
+
+  function renderRounds() {
+    const now = String(S.round + 1);
+    const done = String(S.score.me + S.score.draw + S.score.opp);
+    if (roundNowEl && roundNowEl.textContent !== now) { roundNowEl.textContent = now; bump(roundNowEl); }
+    if (roundDoneEl && roundDoneEl.textContent !== done) { roundDoneEl.textContent = done; bump(roundDoneEl); }
+  }
+
+  // 房间内固定身份：房主 = 玩家一，访客 = 玩家二
+  const nameOfRole = (role) => (role === 'host' ? '玩家一' : '玩家二');
+  const myName = () => nameOfRole(S.role);
+  const oppName = () => nameOfRole(S.role === 'host' ? 'guest' : 'host');
+
+  function scrollChatToEnd() {
+    try { chatListEl.scrollTop = chatListEl.scrollHeight; } catch (err) {}
+  }
+
+  function appendChat(text, own) {
+    if (!chatListEl) return;
+    if (chatEmptyEl) chatEmptyEl.hidden = true;
+    const row = document.createElement('div');
+    row.className = 'msg ' + (own ? 'from-me' : 'from-other');
+    const name = document.createElement('span');
+    name.className = 'msg-name';
+    name.textContent = own ? myName() : oppName();
+    const bubble = document.createElement('p');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(name);
+    row.appendChild(bubble);
+    chatListEl.appendChild(row);
+    S.chat.push({ own: !!own, text: text });
+    scrollChatToEnd();
+  }
+
+  function clearChat() {
+    S.chat = [];
+    if (!chatListEl) return;
+    chatListEl.innerHTML = '';
+    if (chatEmptyEl) { chatEmptyEl.hidden = false; chatListEl.appendChild(chatEmptyEl); }
+  }
+
+  function updateChatSend() {
+    if (!chatSendEl || !chatInputEl) return;
+    chatSendEl.disabled = chatInputEl.value.trim().length === 0;
+  }
+
+  function sendChat(raw) {
+    const text = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!text) return;
+    if (!S.client || !S.connected) { setNotice('还没连上对方，稍等一下再发。'); return; }
+    appendChat(text, true);
+    publish({ t: 'msg', x: text, round: S.round });
   }
 
   function isPublicUrl() {
@@ -366,6 +441,7 @@
     }
 
     renderScore();
+    renderRounds();
     S.sentRematch = false;
     S.gotRematch = false;
     rematchBtn.hidden = false;
@@ -384,6 +460,7 @@
     rematchBtn.hidden = true;
     canvas.classList.remove('is-over');
     assignMarks();
+    renderRounds();
     draw();
 
     if (S.myMark === BLACK) {
@@ -562,6 +639,14 @@
         setConn('wait', '对方已离开');
         break;
 
+      case 'msg':
+        if (typeof msg.x !== 'string') return;
+        {
+          const text = msg.x.replace(/\s+/g, ' ').trim().slice(0, 80);
+          if (text) appendChat(text, false);
+        }
+        break;
+
       default:
         break;
     }
@@ -629,8 +714,13 @@
     S.code = code;
     S.role = role;
     S.round = 0;
+    clearChat();
+    updateChatSend();
     lobbyEl.hidden = true;
     gameEl.hidden = false;
+    gameEl.classList.remove('view-in');
+    void gameEl.offsetWidth;
+    gameEl.classList.add('view-in');
     codeEl.textContent = code;
     assignMarks();
     resetRound();
@@ -664,6 +754,8 @@
     S.oppOnline = false;
     S.mode = 'lobby';
     S.code = '';
+    clearChat();
+    updateChatSend();
     gameEl.hidden = true;
     lobbyEl.hidden = false;
     setConn('', '未连接');
@@ -678,6 +770,18 @@
     $('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom($('code-input').value); });
     $('leave-btn').addEventListener('click', leaveRoom);
     rematchBtn.addEventListener('click', requestRematch);
+
+    if (chatInputEl) chatInputEl.addEventListener('input', updateChatSend);
+    if (chatFormEl) {
+      chatFormEl.addEventListener('submit', (e) => {
+        e.preventDefault();
+        sendChat(chatInputEl.value);
+        chatInputEl.value = '';
+        updateChatSend();
+        chatInputEl.focus();
+      });
+    }
+    updateChatSend();
 
     shareBtn.addEventListener('click', () => {
       const url = roomUrl(S.code);
@@ -772,7 +876,8 @@
 
   window.__gmk = {
     S, startOnline, joinRoom, createRoom, handleMessage, getResult, winLineAt,
-    tryPlay, requestRematch, assignMarks, layout, hitTest, geomOf: () => geom, TOTAL, N
+    tryPlay, requestRematch, assignMarks, layout, hitTest, geomOf: () => geom, TOTAL, N,
+    sendChat, appendChat, clearChat, renderRounds
   };
 
   boot();
