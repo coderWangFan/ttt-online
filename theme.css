@@ -689,7 +689,8 @@ body {
   font-weight: 600;
 }
 
-.actions-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.actions-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
+.actions-row .btn { height: 46px; }
 
 /* ============================== 入口页卡片 ============================== */
 
