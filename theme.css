@@ -1253,6 +1253,9 @@ body {
   opacity: .85;
 }
 
+/* 黑方视角：楚河 / 汉界跟着换边 */
+.xq.is-flipped .xq-river { flex-direction: row-reverse; }
+
 .xq-pieces { position: absolute; inset: 0; }
 
 /* 棋子：白瓷小圆片，红黑两色字，没有花哨渐变 */
