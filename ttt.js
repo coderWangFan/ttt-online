@@ -54,6 +54,11 @@
   const chatToggleEl = $('chat-toggle');
   const chatPeekEl = $('chat-peek');
   const chipEl = $('code-chip');
+  const matchDialogEl = $('match-dialog');
+  const mdTextEl = $('md-text');
+  const mdAgainEl = $('md-again');
+  const mdCloseEl = $('md-close');
+  const mdScrimEl = $('md-scrim');
   const totalPickEl = $('total-pick');
   const totalInputEl = $('total-input');
   const totalCustomRowEl = $('total-custom-row');
@@ -490,7 +495,8 @@
     shareBtn.classList.add('btn--ghost');
 
     if (S.mode === 'online' && S.matchOver) {
-      rematchBtn.textContent = '再来一轮（清空比分）';
+      rematchBtn.hidden = true;
+      showMatchDialog();
       const verdict = S.score.me > S.score.opp ? '你赢下本轮'
         : S.score.me < S.score.opp ? '对方赢下本轮' : '本轮打平';
       setStatus('本轮对局结束', S.score.me > S.score.opp ? 'win' : S.score.me < S.score.opp ? 'lose' : 'wait');
@@ -696,6 +702,10 @@
       case 'rematch':
         if (msg.round !== S.round) return;
         S.gotRematch = true;
+        if (matchDialogEl && !matchDialogEl.hidden && mdAgainEl) {
+          mdAgainEl.textContent = '对方想再来一轮 → 同意';
+          mdAgainEl.disabled = false;
+        }
         if (S.sentRematch) { nextRound(); }
         else {
           rematchBtn.hidden = false;
@@ -726,12 +736,17 @@
     if (!S.over || S.mode !== 'online') return;
     S.sentRematch = true;
     publish({ t: 'rematch', round: S.round });
+    if (matchDialogEl && !matchDialogEl.hidden && mdAgainEl) {
+      mdAgainEl.textContent = '等待对方同意…';
+      mdAgainEl.disabled = true;
+    }
     rematchBtn.textContent = '等待对方同意…';
     setDetail('已发送「再来一局」请求。');
     if (S.gotRematch) nextRound();
   }
 
   function nextRound() {
+    hideMatchDialog();
     if (S.matchOver) {
       S.matchOver = false;
       S.round = 0;
@@ -923,6 +938,28 @@
     renderRounds();
   }
 
+  /* ============================ 结果弹窗 ============================ */
+
+  function matchVerdict() {
+    if (S.score.me > S.score.opp) return '你赢下本轮';
+    if (S.score.me < S.score.opp) return '对方赢下本轮';
+    return '本轮打平';
+  }
+
+  function showMatchDialog() {
+    if (!matchDialogEl) return;
+    if (mdTextEl) {
+      mdTextEl.textContent = '你 ' + S.score.me + ' · 平 ' + S.score.draw + ' · 对方 ' + S.score.opp +
+        '，' + matchVerdict() + '（共 ' + S.total + ' 局）';
+    }
+    if (mdAgainEl) { mdAgainEl.textContent = '再来一轮（清空比分）'; mdAgainEl.disabled = false; }
+    matchDialogEl.hidden = false;
+  }
+
+  function hideMatchDialog() {
+    if (matchDialogEl) matchDialogEl.hidden = true;
+  }
+
   function createRoom() {
     S.total = readTotal();
     startOnline(makeCode(), 'host');
@@ -976,6 +1013,18 @@
     });
     $('leave-btn').addEventListener('click', leaveRoom);
     rematchBtn.addEventListener('click', requestRematch);
+    if (mdAgainEl) mdAgainEl.addEventListener('click', requestRematch);
+    if (mdCloseEl) mdCloseEl.addEventListener('click', function () {
+      hideMatchDialog();
+      // 关掉弹窗后留一个安静的小按钮，方便再叫一次
+      if (S.matchOver && rematchBtn) {
+        rematchBtn.hidden = false;
+        rematchBtn.textContent = '再来一轮';
+        rematchBtn.classList.remove('btn--primary');
+        rematchBtn.classList.add('btn--quiet');
+      }
+    });
+    if (mdScrimEl) mdScrimEl.addEventListener('click', function () { if (mdCloseEl) mdCloseEl.click(); });
     if (totalPickEl) {
       totalPickEl.addEventListener('click', function (e) {
         let btn = e.target;
