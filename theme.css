@@ -763,7 +763,7 @@ body {
 .chat.is-collapsed .chat-list,
 .chat.is-collapsed .chat-form { display: none; }
 .chat.is-collapsed .chat-peek { display: block; }
-.chat.is-collapsed .chat-toggle svg { transform: rotate(180deg); }
+.chat:not(.is-collapsed) .chat-toggle svg { transform: rotate(180deg); }
 
 .chat-peek {
   display: none;
