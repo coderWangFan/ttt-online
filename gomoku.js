@@ -122,14 +122,14 @@
   let noticeTimer = 0;
 
   // 提示只做「提示」，不占版面：浮在底部，几秒后自己消失
-  function setNotice(text, kind) {
+  function setNotice(text, kind, ms) {
     if (!noticeEl) return;
     if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = 0; }
     if (text) {
       noticeEl.textContent = text;
       noticeEl.dataset.kind = kind || 'warn';
       noticeEl.hidden = false;
-      noticeTimer = setTimeout(function () { noticeEl.hidden = true; noticeTimer = 0; }, 5200);
+      noticeTimer = setTimeout(function () { noticeEl.hidden = true; noticeTimer = 0; }, ms || 5200);
     } else {
       noticeEl.hidden = true;
       noticeEl.textContent = '';
@@ -1128,12 +1128,9 @@
     gameEl.hidden = true;
 
     if (!isPublicUrl()) {
-      const warn = $('local-warn');
-      warn.hidden = false;
-      warn.dataset.kind = 'warn';
-      warn.textContent = location.protocol === 'file:'
-        ? '你现在是双击本地文件打开的 —— 链接发出去对方打不开。要联机，请用公网地址打开本页。'
-        : '你现在用的是本机地址 localhost —— 复制的链接对方打不开。要联机，请用公网地址打开本页。';
+      setNotice(location.protocol === 'file:'
+        ? '双击本地文件打开的页面只能自己玩，链接对方打不开。'
+        : '本机地址 localhost 的链接对方打不开，要联机请先用公网地址打开。', 'warn', 7000);
     }
   }
 
