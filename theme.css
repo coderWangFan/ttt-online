@@ -10,6 +10,8 @@
   --surface: #ffffff;
   --surface-2: #f2f2f7;
   --surface-3: #e8e8ed;
+  --inset: #f7f7fa;
+  --bubble: #ffffff;
 
   --label: #1d1d1f;
   --label-2: #6e6e73;
@@ -54,6 +56,8 @@
   --surface: #1c1c1e;
   --surface-2: #2c2c2e;
   --surface-3: #3a3a3c;
+  --inset: #141416;
+  --bubble: #2c2c2e;
 
   --label: #f5f5f7;
   --label-2: #a1a1a6;
@@ -236,10 +240,10 @@ body {
 .btn--primary {
   background: var(--blue);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 122, 255, .24);
+  box-shadow: none;
 }
 .btn--primary:hover { background: var(--blue-hover); }
-.btn--primary:focus-visible { box-shadow: 0 6px 18px rgba(0, 122, 255, .24), 0 0 0 3px var(--blue-soft); }
+.btn--primary:focus-visible { box-shadow: 0 0 0 3px var(--blue-soft); }
 
 .btn--ghost {
   background: transparent;
@@ -319,80 +323,129 @@ body {
 .row { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 12px; }
 .row > .label { font-size: 13px; font-weight: 500; color: var(--label-2); }
 
-/* ============================== 比分 ============================== */
+/* ============================== 对局框架 ============================== */
 
-.scoreboard {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* 一块「舞台」装下棋盘和下方面板：靠内边距和发丝线分区，不叠浮卡。
+   竖屏：棋盘在上、消息面板贴底；宽屏：消息面板变成右侧一栏。 */
+
+.wrap--game {
+  width: min(100%, 520px);
+  min-height: 100dvh;
+  gap: 10px;
+  padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+  --board-size: clamp(200px, min(100%, calc(100dvh - 470px)), 460px);
+}
+
+#lobby { flex: 0 0 auto; margin-block: auto; }
+.wrap--game .lobby-head { display: grid; gap: 4px; }
+.wrap--game .lobby-title {
   margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.15;
+}
+.wrap--game .lobby-sub { margin: 0; font-size: 12.5px; color: var(--label-3); letter-spacing: -.005em; }
+.wrap--game .lobby-note { margin: 0; font-size: 13px; line-height: 1.6; color: var(--label-2); }
+
+#game { display: none; }
+#game:not([hidden]) { display: block; }
+
+/* 舞台 = 上面的对局块 + 下面的消息块，两块各自定高，互不挤压 */
+.stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: calc(100dvh - 78px);
   background: var(--surface);
-  border-radius: 20px;
+  border-radius: var(--r-card);
   box-shadow: var(--shadow-1);
   overflow: hidden;
   transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
 }
-.score { padding: 11px 8px 13px; text-align: center; }
-.score + .score { box-shadow: inset .5px 0 0 var(--separator); }
-.score dt { margin: 0; font-size: 11.5px; font-weight: 500; letter-spacing: .02em; color: var(--label-2); }
-.score dd {
-  margin: 3px 0 0;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -.03em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+
+.stage-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px 16px 14px;
 }
-.score.is-me dd { color: var(--blue); }
-.score.is-opp dd { color: var(--orange); }
 
-/* ============================== 状态区 ============================== */
+/* 头部：标题 + 状态 + 说明，一块说完，不多画一条线 */
+.stage-head { display: grid; gap: 10px; min-width: 0; }
+.stage-status { display: grid; gap: 3px; min-width: 0; }
+.title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.game-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.032em;
+  line-height: 1.15;
+  color: var(--label);
+  white-space: nowrap;
+}
+.game-sub { margin: 0; font-size: 12px; color: var(--label-3); letter-spacing: -.005em; }
 
-.status-wrap { display: grid; gap: 5px; text-align: center; min-height: 50px; align-content: center; }
-.status {
-  font-size: 17px;
+.turn-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.dot {
+  flex: 0 0 auto;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--label-3);
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(52, 199, 89, .16); }
+.dot.wait { background: var(--orange); box-shadow: 0 0 0 3px rgba(255, 149, 0, .16); }
+
+.turn-text {
+  min-width: 0;
+  font-size: 15px;
   font-weight: 650;
   letter-spacing: -.02em;
+  color: var(--label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: color .25s var(--ease);
 }
-.status[data-tone="win"] { color: var(--green); }
-.status[data-tone="lose"] { color: var(--orange); }
-.status[data-tone="wait"] { color: var(--label-2); }
-.detail {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
+.turn-text[data-tone="win"] { color: var(--green); }
+.turn-text[data-tone="lose"] { color: var(--orange); }
+.turn-text[data-tone="wait"] { color: var(--label-2); }
+.turn-text.is-updating { animation: statusIn .34s var(--ease); }
+
+.turn-conn {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .01em;
   color: var(--label-2);
+  transition: background-color .3s var(--ease), color .25s var(--ease);
+}
+
+.turn-sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
   letter-spacing: -.005em;
+  color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }
 
-/* ============================== 提示条 ============================== */
-
-.notice {
-  font-size: 13px;
-  line-height: 1.55;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--warn-soft);
-  color: var(--warn-ink);
-  overflow-wrap: anywhere;
-  transition: background-color .3s var(--ease), color .3s var(--ease);
+/* 棋盘槽：把剩下的空间让出来，棋盘按 min(宽, 高) 自适应 */
+.board-slot {
+  position: relative;
+  align-self: center;
+  padding: 10px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--surface-2);
+  transition: background-color .3s var(--ease);
 }
-.notice[data-kind="info"] { background: var(--info-soft); color: var(--info-ink); }
-
-/* ============================== 其它 ============================== */
-
-.hint { margin: 0; text-align: center; font-size: 12px; line-height: 1.6; color: var(--label-3); }
-
-.room-code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  letter-spacing: .14em;
-  color: var(--label);
-  font-weight: 600;
-}
-
-.actions { display: grid; gap: 10px; }
-.actions-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.board-slot > * { width: var(--board-size); max-width: 100%; }
 
 /* ============================== 井字棋棋盘 ============================== */
 
@@ -400,10 +453,11 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2px;
+  width: var(--board-size);
   background: var(--board-grid);
-  border-radius: 22px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 0 0 .5px var(--separator-2);
   transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
 }
 .ttt .cell {
@@ -447,9 +501,18 @@ body {
 }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 
+/* 连线的格子：淡淡填色 + 一圈同色描边，深色下也不会糊成土黄 */
 .ttt .cell.win { animation: pop .5s var(--ease); }
-.ttt .cell.x.win { background: var(--blue-soft); }
-.ttt .cell.o.win { background: rgba(255, 149, 0, .12); }
+.ttt .cell.x.win {
+  background: var(--blue-soft);
+  box-shadow: inset 0 0 0 2px rgba(0, 122, 255, .45);
+}
+.ttt .cell.o.win {
+  background: rgba(255, 149, 0, .1);
+  box-shadow: inset 0 0 0 2px rgba(255, 149, 0, .5);
+}
+[data-theme="dark"] .ttt .cell.x.win { box-shadow: inset 0 0 0 2px rgba(10, 132, 255, .6); }
+[data-theme="dark"] .ttt .cell.o.win { background: rgba(255, 159, 10, .08); box-shadow: inset 0 0 0 2px rgba(255, 159, 10, .62); }
 @keyframes pop {
   0%, 100% { transform: scale(1); }
   45% { transform: scale(.95); }
@@ -458,20 +521,157 @@ body {
 
 /* ============================== 五子棋画布 ============================== */
 
-.board-wrap { width: 100%; }
 .gmk-canvas {
   display: block;
-  width: 100%;
+  width: var(--board-size);
   aspect-ratio: 1 / 1;
-  border-radius: 22px;
+  border-radius: 18px;
   background: var(--board-bg);
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 0 0 .5px var(--separator-2);
   cursor: pointer;
   touch-action: manipulation;
   transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
 }
-.gmk-canvas:focus-visible { outline: none; box-shadow: var(--shadow-2), 0 0 0 3px var(--blue-soft); }
+.gmk-canvas:focus-visible { outline: none; box-shadow: 0 0 0 .5px var(--separator-2), 0 0 0 3px var(--blue-soft); }
 .gmk-canvas.is-over { cursor: default; }
+
+/* ============================== 比分 / 局数 ============================== */
+
+.scoreboard {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(62px, 74px);
+  align-items: center;
+  padding: 8px 0 7px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  transition: background-color .3s var(--ease);
+}
+.score { padding: 0 4px; text-align: center; min-width: 0; }
+.score + .score { box-shadow: inset .5px 0 0 var(--separator-2); }
+.score dt {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--label-2);
+}
+.score dd {
+  margin: 3px 0 0;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.score.is-me dd { color: var(--blue); }
+.score.is-opp dd { color: var(--orange); }
+.score.is-round dd { font-size: 15px; font-weight: 600; color: var(--label-2); }
+.score.is-round .rb-slash { margin: 0 2px; font-style: normal; color: var(--label-3); }
+.score dd span { display: inline-block; }
+.score dd span.bump { animation: scoreBump .5s var(--ease); }
+
+/* ============================== 操作区 ============================== */
+
+.actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.actions > .btn--primary { grid-column: 1; }
+.actions > #leave-btn {
+  grid-column: 2;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: var(--r-btn);
+}
+.actions > .notice,
+.actions > .hint { grid-column: 1 / -1; }
+
+.btn--quiet {
+  background: transparent;
+  box-shadow: none;
+  color: var(--label-2);
+  height: 40px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.btn--quiet:hover { background: var(--surface-2); color: var(--label); }
+.btn--quiet:active { transform: scale(.97); }
+
+.hint { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--label-3); text-align: center; }
+
+/* 顶栏房间码胶囊（点一下复制链接） */
+.code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 9px 0 12px;
+  border: .5px solid var(--separator-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--label);
+  font: inherit;
+  cursor: pointer;
+  transition: transform .16s var(--ease), color .25s var(--ease), border-color .25s var(--ease),
+    background-color .25s var(--ease), box-shadow .2s var(--ease);
+}
+.code-chip .room-code { font-size: 12.5px; letter-spacing: .12em; }
+.code-chip svg { width: 13px; height: 13px; color: var(--label-3); transition: color .25s var(--ease); }
+.code-chip:active { transform: scale(.96); }
+.code-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--blue-soft); }
+.code-chip.is-copied {
+  color: var(--green);
+  border-color: rgba(52, 199, 89, .38);
+  background: rgba(52, 199, 89, .1);
+}
+.code-chip.is-copied svg { color: var(--green); }
+
+/* 提示条：lobby 里是静态说明 */
+.notice {
+  font-size: 12.5px;
+  line-height: 1.55;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+  overflow-wrap: anywhere;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+.notice[data-kind="info"] { background: var(--info-soft); color: var(--info-ink); }
+
+/* 对局里的提示：浮在底部，几秒自己消失，绝不挤压棋盘 */
+.notice--toast {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(92vw, 420px);
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  background: var(--surface);
+  color: var(--label);
+  box-shadow: var(--shadow-2), 0 0 0 .5px var(--separator);
+  animation: toastIn .34s var(--ease) both;
+}
+.notice--toast[data-kind="warn"] { background: var(--surface); }
+.notice--toast[data-kind="info"] { background: var(--surface); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 12px) scale(.97); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.room-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  letter-spacing: .14em;
+  color: var(--label);
+  font-weight: 600;
+}
+
+.actions-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 
 /* ============================== 入口页卡片 ============================== */
 
@@ -516,118 +716,176 @@ body {
 .chevron { color: var(--label-3); font-size: 17px; transition: transform .25s var(--ease), color .25s var(--ease); }
 .entry:hover .chevron { transform: translateX(2px); color: var(--label-2); }
 
-/* ============================== 局数条 ============================== */
-
-.roundbar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  margin: -3px 0 0;
-  font-size: 12.5px;
-  letter-spacing: -.005em;
-  color: var(--label-2);
-  transition: color .3s var(--ease);
-}
-.roundbar b {
-  display: inline-block;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  color: var(--label);
-  transition: color .3s var(--ease);
-}
-.roundbar .rb-sep {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--label-3);
-  opacity: .7;
-}
-.roundbar b.bump { animation: numBump .52s var(--ease); }
-
-.score dd.bump { display: inline-block; animation: scoreBump .5s var(--ease); }
-
-@keyframes scoreBump {
-  0% { transform: scale(1); }
-  38% { transform: scale(1.16); }
-  100% { transform: scale(1); }
-}
-
-@keyframes numBump {
-  0% { transform: scale(1); }
-  36% { transform: scale(1.3); color: var(--blue); }
-  100% { transform: scale(1); }
-}
-
 /* ============================== 房间消息 ============================== */
+
+/* 竖屏：贴在舞台底部的一条常驻带子，消息在内部滚，输入框始终在眼前。
+   宽屏：变成右侧一栏，高度跟随舞台，不用点任何按钮。 */
 
 .chat {
   display: grid;
-  gap: 10px;
-  padding: 14px 14px 12px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  height: clamp(196px, 27dvh, 300px);
+  padding: 11px 14px 12px;
+  background: var(--inset);
+  border-top: .5px solid var(--separator);
+  overflow: hidden;
+  transition: height .3s var(--ease), background-color .3s var(--ease);
 }
-.chat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.chat-title { font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
-.chat-note { font-size: 11.5px; color: var(--label-3); letter-spacing: -.005em; }
+
+/* 收起：只留一行抬头（带最后一条消息），不看就不占地方 */
+.chat.is-collapsed {
+  height: 48px;
+  grid-template-rows: auto;
+  gap: 0;
+  align-content: center;
+  padding-block: 0;
+}
+.chat.is-collapsed .chat-sub,
+.chat.is-collapsed .chat-list,
+.chat.is-collapsed .chat-form { display: none; }
+.chat.is-collapsed .chat-peek { display: block; }
+.chat.is-collapsed .chat-toggle svg { transform: rotate(180deg); }
+
+.chat-peek {
+  display: none;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--label-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat.has-new .chat-peek { color: var(--label); font-weight: 550; }
+.chat.has-new .chat-title::after {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  vertical-align: 2px;
+  animation: pop .4s var(--ease);
+}
+
+.chat-toggle {
+  appearance: none;
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--label-2);
+  cursor: pointer;
+  box-shadow: 0 0 0 .5px var(--separator-2);
+  transition: transform .18s var(--ease), background-color .25s var(--ease), color .25s var(--ease);
+}
+.chat-toggle svg { width: 14px; height: 14px; transition: transform .28s var(--ease); }
+.chat-toggle:hover { color: var(--label); }
+.chat-toggle:active { transform: scale(.9); }
+.chat-toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--blue-soft); }
+
+.chat-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chat-title { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: -.01em; color: var(--label); }
+.chat-sub { margin: 0; font-size: 11px; letter-spacing: -.005em; color: var(--label-3); }
 
 .chat-list {
-  display: grid;
-  gap: 9px;
-  align-content: start;
-  max-height: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 2px 2px 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  padding-right: 2px;
+  /* 滚动条不占位、不闪：iOS 也没有可见滚动条 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.chat-list::-webkit-scrollbar { width: 4px; }
-.chat-list::-webkit-scrollbar-thumb { background: var(--separator-2); border-radius: 999px; }
+.chat-list::-webkit-scrollbar { width: 0; height: 0; }
+/* 弹性占位：消息少时把消息顶到底部，多时可滚动，不会出现「上面滚不到」 */
+.chat-spacer { flex: 1 1 0; min-height: 0; }
+.chat-list.is-empty { justify-content: center; align-items: center; }
+.chat-list.is-empty .chat-spacer { display: none; }
+.chat-list.is-scrolled {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
+}
+
+/* 空状态：小图标 + 一句引导，居中，不留大片死白 */
 .chat-empty {
-  margin: 16px 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px 0;
   text-align: center;
-  font-size: 12.5px;
-  color: var(--label-3);
+  animation: msgIn .4s var(--ease) both;
 }
+.chat-empty-ico {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--label-3);
+  box-shadow: 0 0 0 .5px var(--separator);
+}
+.chat-empty-ico svg { width: 16px; height: 16px; }
+.chat-empty-title { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: -.01em; color: var(--label-2); }
+.chat-empty-sub { margin: 0; font-size: 10.5px; line-height: 1.4; color: var(--label-3); }
 
 .msg {
   display: grid;
   gap: 3px;
-  max-width: 84%;
+  max-width: 86%;
   animation: msgIn .38s var(--ease) both;
 }
-.msg.from-other { justify-self: start; justify-items: start; }
-.msg.from-me { justify-self: end; justify-items: end; }
+.msg { flex: 0 0 auto; }
+.msg.from-other { align-self: flex-start; justify-items: start; }
+.msg.from-me { align-self: flex-end; justify-items: end; }
 .msg-name {
-  padding: 0 7px;
-  font-size: 11px;
+  padding: 0 8px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: .01em;
   color: var(--label-3);
 }
 .msg .bubble {
   margin: 0;
-  padding: 8px 12px;
-  border-radius: 16px;
+  padding: 7px 12px;
+  border-radius: 17px;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.42;
   letter-spacing: -.005em;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   transition: background-color .3s var(--ease), color .3s var(--ease);
 }
 .msg.from-other .bubble {
-  background: var(--surface-2);
+  background: var(--bubble);
   color: var(--label);
-  border-bottom-left-radius: 5px;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 0 0 .5px var(--separator);
 }
 .msg.from-me .bubble {
   background: var(--blue);
   color: #fff;
-  border-bottom-right-radius: 5px;
+  border-bottom-right-radius: 6px;
+}
+
+/* 同一人连着说：省略重复署名，中间气泡不做小尖角 */
+.msg.is-group { gap: 0; }
+.msg.is-group .msg-name { display: none; }
+.msg.is-mid .bubble,
+.msg.is-mid.from-other .bubble,
+.msg.is-mid.from-me .bubble {
+  border-bottom-left-radius: 17px;
+  border-bottom-right-radius: 17px;
 }
 
 @keyframes msgIn {
@@ -635,17 +893,18 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.chat-form { display: grid; grid-template-columns: 1fr 38px; gap: 8px; align-items: center; }
+.chat-form { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 8px; align-items: center; }
 .chat-input {
   appearance: none;
-  height: 38px;
+  width: 100%;
+  height: 36px;
   padding: 0 14px;
   border: .5px solid var(--separator-2);
   border-radius: 999px;
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--label);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   letter-spacing: -.005em;
   transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background-color .3s var(--ease);
 }
@@ -654,34 +913,79 @@ body {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px var(--blue-soft);
-  background: var(--surface);
 }
-
 .chat-send {
-  width: 38px;
-  height: 38px;
+  appearance: none;
+  border: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: 50%;
   background: var(--blue);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, .26);
   transition: transform .18s var(--ease), background-color .25s var(--ease),
-    color .25s var(--ease), box-shadow .25s var(--ease), opacity .25s var(--ease);
+    color .25s var(--ease), opacity .25s var(--ease), box-shadow .2s var(--ease);
 }
-.chat-send svg { width: 17px; height: 17px; }
-.chat-send:hover { transform: scale(1.06); }
-.chat-send:active { transform: scale(.9); }
+.chat-send svg { width: 16px; height: 16px; }
+.chat-send:hover:not(:disabled) { transform: scale(1.06); }
+.chat-send:active:not(:disabled) { transform: scale(.9); }
 .chat-send:disabled {
-  background: var(--surface-3);
+  background: var(--surface-2);
   color: var(--label-3);
-  box-shadow: none;
   cursor: default;
-  transform: none;
 }
 .chat-send:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--blue-soft); }
+
+/* ============================== 断点 ============================== */
+
+/* 矮屏：把留给棋盘的预算收紧一点，字也小一号 */
+@media (max-width: 899px) and (max-height: 760px) {
+  .wrap--game { --board-size: clamp(196px, min(100%, calc(100dvh - 418px)), 380px); }
+  .stage-main { gap: 9px; padding: 13px 13px 11px; }
+  .stage-head { gap: 8px; }
+  .game-title { font-size: 19px; }
+  .score dd { font-size: 17px; }
+  .scoreboard { padding: 6px 0 5px; }
+  .hint { display: none; }
+  .chat { height: clamp(170px, 24dvh, 240px); }
+  .chat.is-collapsed { height: 46px; }
+}
+
+/* 宽屏：棋子在左、消息在右，一栏到底，整页不滚动 */
+@media (min-width: 900px) {
+  .wrap--game {
+    width: min(100%, 1010px);
+    padding: 16px 20px 20px;
+    gap: 12px;
+    --board-size: min(100%, calc(100dvh - 420px));
+  }
+  .stage {
+    grid-template-columns: minmax(0, 1fr) 348px;
+    grid-template-rows: minmax(0, 1fr);
+    height: calc(100dvh - 92px);
+    min-height: calc(100dvh - 92px);
+  }
+  .stage-main { min-height: 0; }
+  .stage-main { padding: 18px; gap: 14px; }
+  .chat {
+    height: auto;
+    min-height: 0;
+    padding: 16px 16px 14px;
+    border-top: 0;
+    border-left: .5px solid var(--separator);
+    gap: 10px;
+  }
+  /* 宽屏一栏常驻，不需要开合 */
+  .chat-toggle,
+  .chat-peek { display: none !important; }
+  .chat.is-collapsed { height: auto; }
+  .game-title { font-size: 23px; }
+  .scoreboard { padding: 9px 0 8px; }
+  .chat-list { gap: 9px; }
+  #lobby { max-width: 420px; margin-inline: auto; }
+}
 
 /* ============================== 视图切换 / 状态过渡 ============================== */
 
