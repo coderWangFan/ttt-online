@@ -26,6 +26,13 @@
   .ico-o { stroke: var(--orange); fill: none; }
   .ico-black { fill: var(--stone-black); stroke: var(--stone-black-edge); stroke-width: 1.1; }
   .ico-white { fill: var(--stone-white); stroke: var(--stone-white-edge); }
+  .ico-xq-piece { fill: none; stroke: var(--xq-red); }
+  .ico-xq-glyph {
+    fill: var(--xq-red);
+    font-size: 11.5px;
+    font-family: "Songti SC", "STKaiti", "KaiTi", serif;
+    font-weight: 600;
+  }
 
   .foot { display: grid; gap: 5px; margin-top: 2px; }
   .foot p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--label-3); text-align: center; }
@@ -89,6 +96,24 @@
         <span class="text">
           <span class="name">五子棋 <span class="badge">联机</span></span>
           <span class="desc">15 × 15 · 先连五子者胜</span>
+        </span>
+        <span class="chevron" aria-hidden="true">›</span>
+      </a>
+
+      <a class="entry" href="./xiangqi.html">
+        <span class="icon">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <g class="ico-grid" stroke-width="1.2">
+              <path d="M8 11H40M8 24H40M8 37H40" />
+              <path d="M8 11V37M24 11V37M40 11V37" />
+            </g>
+            <circle class="ico-xq-piece" cx="24" cy="24" r="8.4" stroke-width="1.3" />
+            <text class="ico-xq-glyph" x="24" y="24" text-anchor="middle" dominant-baseline="central">帅</text>
+          </svg>
+        </span>
+        <span class="text">
+          <span class="name">中国象棋 <span class="badge">联机</span></span>
+          <span class="desc">9 × 10 · 将死或困毙即胜</span>
         </span>
         <span class="chevron" aria-hidden="true">›</span>
       </a>
