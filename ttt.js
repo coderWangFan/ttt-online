@@ -121,9 +121,13 @@
   }
 
   function renderScore() {
-    scoreEls.me.textContent = S.score.me;
-    scoreEls.draw.textContent = S.score.draw;
-    scoreEls.opp.textContent = S.score.opp;
+    // 数字变化时给一点反馈，不要硬切
+    [['me', S.score.me], ['draw', S.score.draw], ['opp', S.score.opp]].forEach(([k, v]) => {
+      const el = scoreEls[k];
+      if (!el) return;
+      const next = String(v);
+      if (el.textContent !== next) { el.textContent = next; bump(el); }
+    });
   }
 
   /* ============================ 局数 / 房间消息 ============================ */
