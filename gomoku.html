@@ -66,6 +66,12 @@
         <div class="score is-opp"><dt>对方</dt><dd id="score-opp">0</dd></div>
       </dl>
 
+      <div class="roundbar" id="roundbar" aria-live="polite">
+        <span>第 <b id="round-now">1</b> 局</span>
+        <span class="rb-sep" aria-hidden="true"></span>
+        <span>已完成 <b id="round-done">0</b> 局</span>
+      </div>
+
       <div class="board-wrap">
         <canvas id="board" class="gmk-canvas" width="600" height="600" tabindex="0" role="application"
                 aria-label="五子棋棋盘，15 行 15 列。方向键移动，回车落子。"></canvas>
@@ -84,6 +90,26 @@
         <button type="button" class="btn btn--ghost btn--wide" id="rematch-btn" hidden>再来一局</button>
         <div class="notice" id="notice" hidden></div>
       </div>
+
+      <section class="chat" id="chat" aria-label="房间消息">
+        <header class="chat-head">
+          <span class="chat-title">房间消息</span>
+          <span class="chat-note">仅房间内可见 · 退出即清空</span>
+        </header>
+        <div class="chat-list" id="chat-list" role="log" aria-live="polite" aria-relevant="additions">
+          <p class="chat-empty" id="chat-empty">还没有消息，打个招呼吧</p>
+        </div>
+        <form class="chat-form" id="chat-form" autocomplete="off">
+          <input class="chat-input" id="chat-input" type="text" maxlength="80"
+                 placeholder="说点什么…" enterkeyhint="send" aria-label="消息内容" />
+          <button class="chat-send" id="chat-send" type="submit" aria-label="发送" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4.5 12h13" /><path d="M12 5.8 18.2 12 12 18.2" />
+            </svg>
+          </button>
+        </form>
+      </section>
 
       <p class="hint">双方需同时在线 · 先手按局数自动轮换</p>
     </div>
