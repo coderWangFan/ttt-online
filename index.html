@@ -2,190 +2,136 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="color-scheme" content="dark" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f2f2f7" />
 <title>棋 · 联机对战</title>
+<script>
+  (function () {
+    var t = 'light';
+    try {
+      t = localStorage.getItem('chess-theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+  })();
+</script>
+<link rel="stylesheet" href="./theme.css" />
 <style>
-  :root {
-    --bg: #0b0f14;
-    --surface: #121821;
-    --surface-2: #18222f;
-    --line: #24303f;
-    --text: #e8eef6;
-    --muted: #7d8b9e;
-    --teal: #4fd1c5;
-    --amber: #f6a35c;
-    --blue: #6aa6ff;
-  }
+  .wrap { justify-content: center; gap: 20px; }
 
-  *, *::before, *::after { box-sizing: border-box; }
+  .entries { display: grid; gap: 12px; }
 
-  body {
-    margin: 0;
-    min-height: 100dvh;
-    display: grid;
-    place-items: center;
-    place-items: safe center;
-    padding: 32px 18px 40px;
-    background:
-      radial-gradient(900px 620px at 50% -12%, rgba(106, 166, 255, .12), transparent 62%),
-      radial-gradient(720px 520px at 108% 112%, rgba(246, 163, 92, .08), transparent 62%),
-      var(--bg);
-    color: var(--text);
-    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-                 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -webkit-tap-highlight-color: transparent;
-  }
+  .ico-grid { stroke: var(--label-3); opacity: .55; fill: none; }
+  .ico-x { stroke: var(--blue); fill: none; stroke-linecap: round; }
+  .ico-o { stroke: var(--orange); fill: none; }
+  .ico-black { fill: var(--stone-black); stroke: var(--stone-black-edge); stroke-width: 1.1; }
+  .ico-white { fill: var(--stone-white); stroke: var(--stone-white-edge); }
 
-  .shell { width: min(100%, 470px); display: flex; flex-direction: column; gap: 22px; }
-
-  header { display: grid; gap: 6px; }
-  h1 {
-    margin: 0;
-    font-size: clamp(30px, 9vw, 40px);
-    font-weight: 650;
-    letter-spacing: .08em;
-  }
-  .sub { margin: 0; font-size: 13px; color: var(--muted); letter-spacing: .04em; }
-
-  .games { display: grid; gap: 12px; }
-
-  .game {
-    position: relative;
-    display: grid;
-    grid-template-columns: 64px 1fr auto;
-    align-items: center;
-    gap: 16px;
-    padding: 16px 18px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    text-decoration: none;
-    color: inherit;
-    overflow: hidden;
-    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
-  }
-  .game::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(240px 140px at 12% 50%, var(--glow, rgba(106,166,255,.16)), transparent 70%);
-    opacity: 0;
-    transition: opacity .22s ease;
-    pointer-events: none;
-  }
-  .game:hover { border-color: #33465c; background: var(--surface-2); }
-  .game:hover::after { opacity: 1; }
-  .game:active { transform: translateY(1px); }
-  .game:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-
-  .icon {
-    width: 64px; height: 64px;
-    border-radius: 14px;
-    background: #0d141c;
-    border: 1px solid var(--line);
-    display: grid;
-    place-items: center;
-  }
-  .icon svg { width: 44px; height: 44px; display: block; }
-
-  .text { display: grid; gap: 3px; min-width: 0; }
-  .name { font-size: 17px; font-weight: 650; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
-  .badge {
-    font-size: 10px; font-weight: 500; letter-spacing: .08em;
-    color: #8fd6ff; border: 1px solid rgba(106,166,255,.35);
-    background: rgba(106,166,255,.08);
-    padding: 1px 6px; border-radius: 20px;
-  }
-  .desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
-
-  .arrow {
-    font-size: 18px; color: #46566a;
-    transition: color .18s ease, transform .18s ease;
-  }
-  .game:hover .arrow { color: var(--text); transform: translateX(3px); }
-
-  .foot {
-    display: grid; gap: 6px;
-    border-top: 1px solid var(--line);
-    padding-top: 16px;
-  }
-  .foot p { margin: 0; font-size: 12px; color: #5d6a7c; line-height: 1.7; }
-  .dot { color: var(--teal); }
-
-  @media (prefers-reduced-motion: reduce) {
-    .game, .game::after, .arrow { transition: none; }
-  }
+  .foot { display: grid; gap: 5px; margin-top: 2px; }
+  .foot p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--label-3); text-align: center; }
 </style>
 </head>
 <body>
-  <main class="shell">
-    <header>
-      <h1>棋</h1>
-      <p class="sub">选一个，建房，把链接发给朋友</p>
-    </header>
+  <div class="wrap">
+    <nav class="nav">
+      <span class="spacer"></span>
+      <span class="pill"><span class="dot on"></span>无需注册</span>
+      <button class="icon-btn theme-btn" id="theme-btn" type="button" aria-label="切换深色外观">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4.1" />
+          <path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5l1.5 1.5M17 17l1.5 1.5M18.5 5.5 17 7M7 17l-1.5 1.5" />
+        </svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.4 14.2A8.5 8.5 0 1 1 9.8 3.6a6.7 6.7 0 0 0 10.6 10.6Z" />
+        </svg>
+      </button>
+    </nav>
 
-    <nav class="games">
-      <a class="game" href="./ttt.html" style="--glow: rgba(79,209,197,.16)">
-        <span class="icon" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none">
-            <g stroke="#2c3d4f" stroke-width="1.6">
-              <path d="M17 6V42M31 6V42M6 17H42M6 31H42" />
+    <div class="title-block">
+      <h1 class="display">棋</h1>
+      <p class="subtitle">选一个 · 建房 · 把链接发给朋友</p>
+    </div>
+
+    <nav class="entries">
+      <a class="entry" href="./ttt.html">
+        <span class="icon">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <g class="ico-grid" stroke-width="1.4">
+              <path d="M16.5 6V42M31.5 6V42M6 16.5H42M6 31.5H42" />
             </g>
-            <g stroke="#4fd1c5" stroke-width="3" stroke-linecap="round">
-              <path d="M9 9 L15 15" /><path d="M15 9 L9 15" />
+            <g class="ico-x" stroke-width="3.2">
+              <path d="M4.5 4.5 11.5 11.5" /><path d="M11.5 4.5 4.5 11.5" />
             </g>
-            <circle cx="37" cy="37" r="4" stroke="#f6a35c" stroke-width="2.6" />
+            <circle class="ico-o" cx="40" cy="40" r="4.6" stroke-width="3" />
           </svg>
         </span>
         <span class="text">
           <span class="name">井字棋 <span class="badge">联机</span></span>
-          <span class="desc">3 × 3，连成三子即胜<br />最快十秒一局</span>
+          <span class="desc">3 × 3 · 连成三子即胜</span>
         </span>
-        <span class="arrow" aria-hidden="true">→</span>
+        <span class="chevron" aria-hidden="true">›</span>
       </a>
 
-      <a class="game" href="./gomoku.html" style="--glow: rgba(246,163,92,.14)">
-        <span class="icon" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none">
-            <g stroke="#2c3d4f" stroke-width="1.2">
+      <a class="entry" href="./gomoku.html">
+        <span class="icon">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <g class="ico-grid" stroke-width="1.1">
               <path d="M8 8H40M8 16H40M8 24H40M8 32H40M8 40H40" />
               <path d="M8 8V40M16 8V40M24 8V40M32 8V40M40 8V40" />
             </g>
-            <g fill="#e8eef6">
-              <circle cx="8" cy="24" r="3.2" />
-              <circle cx="16" cy="24" r="3.2" />
-              <circle cx="24" cy="24" r="3.2" />
-            </g>
-            <g fill="#141c26" stroke="rgba(120,145,170,.6)" stroke-width="1">
-              <circle cx="32" cy="24" r="3.2" />
-              <circle cx="40" cy="24" r="3.2" />
-            </g>
+            <circle class="ico-white" cx="8" cy="24" r="3.3" stroke-width="1" />
+            <circle class="ico-white" cx="16" cy="24" r="3.3" stroke-width="1" />
+            <circle class="ico-white" cx="24" cy="24" r="3.3" stroke-width="1" />
+            <circle class="ico-black" cx="32" cy="24" r="3.3" />
+            <circle class="ico-black" cx="40" cy="24" r="3.3" />
           </svg>
         </span>
         <span class="text">
           <span class="name">五子棋 <span class="badge">联机</span></span>
-          <span class="desc">15 × 15，先连成五子者胜<br />黑棋先行，先手自动轮换</span>
+          <span class="desc">15 × 15 · 先连五子者胜</span>
         </span>
-        <span class="arrow" aria-hidden="true">→</span>
+        <span class="chevron" aria-hidden="true">›</span>
       </a>
     </nav>
 
     <div class="foot">
-      <p><span class="dot">●</span> 无需注册，房间码即权限。建房后点「复制邀请链接」，对方打开即进房。</p>
-      <p>双方需同时在线 · 支持手机与电脑</p>
+      <p>房间码即权限，双方需同时在线</p>
+      <p>手机与电脑均可，支持明暗外观</p>
     </div>
-  </main>
+  </div>
 
 <script>
-  // 兼容旧链接：/ ?r=XXXXX 或 ?m=局面 直接跳到井字棋
+  // 兼容旧邀请链接：/?r=XXXXX 或 /?m=局面 → 井字棋
   (function () {
     var p = new URLSearchParams(location.search);
     var r = p.get('r');
     var m = p.get('m');
     if (r) location.replace('./ttt.html?r=' + encodeURIComponent(r));
     else if (m) location.replace('./ttt.html?m=' + encodeURIComponent(m));
+  })();
+
+  (function () {
+    var btn = document.getElementById('theme-btn');
+    if (!btn) return;
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    function current() { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+    function apply(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('chess-theme', t); } catch (e) {}
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t === 'dark' ? '#000000' : '#f2f2f7');
+      btn.setAttribute('aria-pressed', t === 'dark' ? 'true' : 'false');
+      document.dispatchEvent(new CustomEvent('themechange', { detail: { theme: t } }));
+    }
+    btn.addEventListener('click', function () { apply(current() === 'dark' ? 'light' : 'dark'); });
+    btn.setAttribute('aria-pressed', current() === 'dark' ? 'true' : 'false');
+    if (mq.addEventListener) {
+      mq.addEventListener('change', function (e) {
+        var saved = null;
+        try { saved = localStorage.getItem('chess-theme'); } catch (err) {}
+        if (!saved) apply(e.matches ? 'dark' : 'light');
+      });
+    }
   })();
 </script>
 </body>
