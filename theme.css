@@ -36,6 +36,13 @@
   --shadow-2: 0 2px 6px rgba(0, 0, 0, .05), 0 20px 44px rgba(0, 0, 0, .09);
 
   --board-bg: #ffffff;
+  --xq-red: #c2261c;
+  --xq-red-ring: rgba(194, 38, 28, .45);
+  --xq-black: #1c1c1e;
+  --xq-black-ring: rgba(28, 28, 30, .38);
+  --xq-piece-bg: #ffffff;
+  --xq-mark: rgba(60, 60, 67, .3);
+  --xq-mark-strong: rgba(60, 60, 67, .45);
   --board-line: rgba(60, 60, 67, .22);
   --board-grid: rgba(60, 60, 67, .2);
   --board-star: rgba(60, 60, 67, .38);
@@ -82,6 +89,13 @@
   --shadow-2: 0 2px 8px rgba(0, 0, 0, .6), 0 22px 48px rgba(0, 0, 0, .55);
 
   --board-bg: #1c1c1e;
+  --xq-red: #ff7a6e;
+  --xq-red-ring: rgba(255, 122, 110, .5);
+  --xq-black: #f2f2f7;
+  --xq-black-ring: rgba(242, 242, 247, .4);
+  --xq-piece-bg: #2c2c2e;
+  --xq-mark: rgba(235, 235, 245, .28);
+  --xq-mark-strong: rgba(235, 235, 245, .45);
   --board-line: rgba(255, 255, 255, .18);
   --board-grid: rgba(255, 255, 255, .24);
   --board-star: rgba(255, 255, 255, .3);
@@ -1052,6 +1066,8 @@ body {
 
 @media (max-width: 899px) and (max-height: 760px) {
   .wrap--game { --board-size: clamp(196px, min(100%, calc(100dvh - 418px)), 380px); }
+  /* 象棋页：底栏 46px + 呼吸位，操作区不能被消息条压住 */
+  .wrap--xq .stage-main { padding: 12px 12px 58px; }
   .stage-main { gap: 9px; padding: 13px 13px 11px; }
   .stage-head { gap: 8px; }
   .game-title { font-size: 19px; }
@@ -1180,4 +1196,169 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* ============================== 中国象棋 ============================== */
+
+/* 棋盘是 9:10（8 × 9 格 + 半格边），比正方棋盘高一点，尺寸单独算 */
+.wrap--xq { --board-size: clamp(190px, min(100%, calc((100dvh - 404px) / 1.12)), 470px); }
+@media (max-width: 899px) and (max-height: 760px) {
+  .wrap--xq { --board-size: clamp(160px, min(100%, calc((100dvh - 408px) / 1.12)), 340px); }
+}
+
+.xq-slot { padding: 8px; }
+
+.xq {
+  position: relative;
+  width: var(--board-size);
+  aspect-ratio: 9 / 10;
+  border-radius: 18px;
+  background: var(--board-bg);
+  box-shadow: 0 0 0 .5px var(--separator-2);
+  touch-action: manipulation;
+  --xq-cell: 40px;
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+
+.xq-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.xq-grid {
+  stroke: var(--board-grid);
+  stroke-width: .028;
+  stroke-linecap: round;
+  transition: stroke .3s var(--ease);
+}
+.xq-palace { stroke-opacity: .8; }
+
+.xq-river {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% / 10 * 4.5);
+  height: calc(100% / 10);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20%;
+  pointer-events: none;
+  color: var(--label-3);
+  font-size: calc(var(--xq-cell) * .24);
+  letter-spacing: .22em;
+  font-weight: 500;
+  opacity: .85;
+}
+
+.xq-pieces { position: absolute; inset: 0; }
+
+/* 棋子：白瓷小圆片，红黑两色字，没有花哨渐变 */
+.xq-piece {
+  position: absolute;
+  width: calc(var(--xq-cell) * .92);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--xq-piece-bg);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: left .26s var(--ease), top .26s var(--ease),
+              transform .18s var(--ease), box-shadow .18s var(--ease), opacity .2s var(--ease);
+}
+.xq-glyph {
+  font-family: "Songti SC", "STKaiti", "Kaiti SC", "KaiTi", "Noto Serif CJK SC", serif;
+  font-size: calc(var(--xq-cell) * .5);
+  font-weight: 600;
+  letter-spacing: 0;
+  transform: translateY(.01em);
+}
+.xq-piece.is-red {
+  color: var(--xq-red);
+  box-shadow: inset 0 0 0 calc(var(--xq-cell) * .035) var(--xq-red-ring),
+              0 .5px 1.5px rgba(0, 0, 0, .12), 0 4px 9px rgba(0, 0, 0, .06);
+}
+.xq-piece.is-black {
+  color: var(--xq-black);
+  box-shadow: inset 0 0 0 calc(var(--xq-cell) * .035) var(--xq-black-ring),
+              0 .5px 1.5px rgba(0, 0, 0, .12), 0 4px 9px rgba(0, 0, 0, .06);
+}
+.xq-piece:focus-visible { outline: none; box-shadow: 0 0 0 2.5px var(--blue); }
+.xq-piece.is-selected {
+  transform: translate(-50%, -50%) scale(1.07);
+  z-index: 6;
+  box-shadow: 0 0 0 2.5px var(--blue), 0 6px 16px rgba(0, 0, 0, .14);
+}
+.xq-piece.is-check {
+  animation: xqPulse 1.15s var(--ease) infinite;
+  z-index: 5;
+}
+.xq-piece.is-captured {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.72);
+  pointer-events: none;
+}
+@keyframes xqPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 59, 48, .28), 0 .5px 1.5px rgba(0, 0, 0, .12); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 59, 48, .16), 0 .5px 1.5px rgba(0, 0, 0, .12); }
+}
+
+/* 可落点：小圆点；能吃子时改成圈住对方子 */
+.xq-dot {
+  position: absolute;
+  width: calc(var(--xq-cell) * .28);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--blue);
+  opacity: .7;
+  cursor: pointer;
+  z-index: 7;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .16s var(--ease), opacity .16s var(--ease);
+  animation: xqDotIn .18s var(--ease) both;
+}
+.xq-dot:hover { transform: translate(-50%, -50%) scale(1.18); opacity: .95; }
+.xq-dot.is-capture {
+  width: calc(var(--xq-cell) * .94);
+  background: transparent;
+  opacity: .9;
+  box-shadow: inset 0 0 0 2.5px var(--blue);
+}
+@keyframes xqDotIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  to { opacity: .7; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* 上一步的起讫：很轻的一圈 */
+.xq-mark {
+  position: absolute;
+  width: calc(var(--xq-cell) * .9);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 1.5px var(--xq-mark);
+  opacity: .55;
+}
+.xq-mark.is-from {
+  width: calc(var(--xq-cell) * .18);
+  background: var(--xq-mark-strong);
+  box-shadow: none;
+  opacity: .8;
+}
+.xq-mark.is-to { box-shadow: 0 0 0 2px var(--xq-mark-strong); opacity: .75; }
+
+@media (prefers-reduced-motion: reduce) {
+  .xq-piece, .xq-dot, .xq-mark { transition: none; animation: none; }
 }
