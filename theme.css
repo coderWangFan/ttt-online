@@ -96,7 +96,13 @@
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* 页面滚动不要冒出滚动条：手机上本来就是手势滚，桌面上也不需要那根棍 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar { width: 0; height: 0; }
 
 body {
   margin: 0;
@@ -443,7 +449,7 @@ body {
   place-items: center;
   border-radius: 16px;
   background: var(--surface-2);
-  transition: background-color .3s var(--ease);
+  transition: transform .34s var(--ease), background-color .3s var(--ease);
 }
 .board-slot > * { width: var(--board-size); max-width: 100%; }
 
@@ -626,42 +632,54 @@ body {
 .code-chip.is-copied svg { color: var(--green); }
 
 /* 提示条：lobby 里是静态说明 */
+/* 通知：圆点 + 一句话，跟顶部横幅长一个样，只是不悬浮 */
 .notice {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
   font-size: 12.5px;
-  line-height: 1.55;
-  padding: 10px 12px;
-  border-radius: 12px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 16px;
   background: var(--warn-soft);
   color: var(--warn-ink);
   overflow-wrap: anywhere;
   transition: background-color .3s var(--ease), color .3s var(--ease);
 }
+.notice::before {
+  content: '';
+  justify-self: start;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--orange);
+  transform: translateY(-1px);
+}
+.notice[data-kind="info"]::before { background: var(--blue); }
 .notice[data-kind="info"] { background: var(--info-soft); color: var(--info-ink); }
 
 /* 对局里的提示：浮在底部，几秒自己消失，绝不挤压棋盘 */
+/* 顶部横幅通知：从顶边滑下来，自己消失，压不住任何东西 */
 .notice--toast {
   position: fixed;
-  z-index: 60;
-  left: 50%;
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(92vw, 420px);
-  padding: 11px 14px;
-  border-radius: 14px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  text-align: center;
-  background: var(--surface);
+  z-index: 80;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 14px;
+  width: min(80vw, 400px);
+  background: rgba(255, 255, 255, .97);
   color: var(--label);
-  box-shadow: var(--shadow-2), 0 0 0 .5px var(--separator);
-  animation: toastIn .34s var(--ease) both;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .16), 0 0 0 .5px var(--separator);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  backdrop-filter: blur(24px) saturate(1.7);
+  animation: bannerIn .38s var(--ease) both;
 }
-.notice--toast[data-kind="warn"] { background: var(--surface); }
-.notice--toast[data-kind="info"] { background: var(--surface); }
+[data-theme="dark"] .notice--toast { background: rgba(28, 28, 30, .97); }
 
-@keyframes toastIn {
-  from { opacity: 0; transform: translate(-50%, 12px) scale(.97); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-10px) scale(.98); }
+  to { opacity: 1; transform: none; }
 }
 
 .room-code {
@@ -725,7 +743,7 @@ body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
-  height: clamp(196px, 27dvh, 300px);
+  height: clamp(176px, 25dvh, 300px);
   padding: 11px 14px 12px;
   background: var(--inset);
   border-top: .5px solid var(--separator);
@@ -941,6 +959,57 @@ body {
 /* ============================== 断点 ============================== */
 
 /* 矮屏：把留给棋盘的预算收紧一点，字也小一号 */
+/* 窄屏对局：整页锁死一屏。消息条怎么展开收起，页面都不会多出一像素，
+   所以不会冒出页面滚动条，棋盘也永远是这个尺寸，只是位置上下挪。 */
+@media (max-width: 899px) {
+  /* 对局中：整页锁一屏，页面永远不滚 */
+  .wrap--game.is-playing,
+  .wrap--game:has(#game:not([hidden])) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .wrap--game.is-playing .nav,
+  .wrap--game:has(#game:not([hidden])) .nav { flex: 0 0 auto; }
+  .wrap--game.is-playing #game,
+  .wrap--game:has(#game:not([hidden])) #game {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .wrap--game.is-playing .stage,
+  .wrap--game:has(#game:not([hidden])) .stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+  }
+  /* 底部给常驻消息条留出位置 */
+  .stage-main {
+    min-height: 0;
+    padding-bottom: 62px;
+  }
+  .board-slot { max-height: 100%; overflow: hidden; }
+
+  /* 消息区：平时是一条底栏，点开向上长成面板；高度由脚本量出来，
+     棋盘尺寸和页面高度都不受影响 */
+  .chat {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    height: 48px;
+  }
+  .chat:not(.is-collapsed) {
+    height: var(--chat-sheet, 208px);
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    background: var(--surface);
+    box-shadow: 0 -16px 36px rgba(0, 0, 0, .16), 0 0 0 .5px var(--separator);
+  }
+}
+
 @media (max-width: 899px) and (max-height: 760px) {
   .wrap--game { --board-size: clamp(196px, min(100%, calc(100dvh - 418px)), 380px); }
   .stage-main { gap: 9px; padding: 13px 13px 11px; }
@@ -949,7 +1018,6 @@ body {
   .score dd { font-size: 17px; }
   .scoreboard { padding: 6px 0 5px; }
   .hint { display: none; }
-  .chat { height: clamp(170px, 24dvh, 240px); }
   .chat.is-collapsed { height: 46px; }
 }
 
@@ -1003,7 +1071,7 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.notice:not([hidden]) { animation: noticeIn .3s var(--ease); }
+.notice:not([hidden]):not(.notice--toast) { animation: noticeIn .3s var(--ease); }
 
 @keyframes noticeIn {
   from { opacity: 0; transform: translateY(-4px); }
