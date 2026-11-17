@@ -51,6 +51,23 @@
         <p class="lobby-sub">15 × 15 · 先连五子者胜</p>
       </header>
       <p class="lobby-note">点「创建房间」，把邀请链接发给对方；他打开就自动进同一间房。黑棋先行。</p>
+      <div class="rounds-row">
+        <div class="rounds-head">
+          <span class="rounds-label">总局数</span>
+          <span class="rounds-note">打满后统计本轮胜负</span>
+        </div>
+        <div class="seg" id="total-pick" role="group" aria-label="总局数">
+          <button type="button" class="seg-btn is-on" data-total="8">8</button>
+          <button type="button" class="seg-btn" data-total="16">16</button>
+          <button type="button" class="seg-btn" data-total="32">32</button>
+          <button type="button" class="seg-btn" data-total="custom">自定义</button>
+        </div>
+        <div class="rounds-custom" id="total-custom-row" hidden>
+          <input class="field" id="total-input" type="number" inputmode="numeric" min="1" max="99"
+                 step="1" placeholder="输入总局数，例如 12" aria-label="自定义总局数" />
+          <span class="rounds-unit">局</span>
+        </div>
+      </div>
       <div class="notice" id="local-warn" hidden></div>
       <button type="button" class="btn btn--primary btn--wide" id="create-btn">创建房间</button>
       <div class="actions-row">
