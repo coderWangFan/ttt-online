@@ -160,14 +160,9 @@
     const now = String(S.round + 1);
     const done = String(S.score.me + S.score.draw + S.score.opp);
     if (roundNowEl && roundNowEl.textContent !== now) { roundNowEl.textContent = now; bump(roundNowEl); }
-    // 还没打完一局就只显示「当前第几局」，不显示 0/1 那种令人迷惑的写法
-    const hasDone = done !== '0';
-    if (roundDoneEl && roundDoneEl.textContent !== done) {
-      roundDoneEl.textContent = done;
-      if (hasDone) bump(roundDoneEl);
-    }
-    if (roundDoneEl) roundDoneEl.hidden = !hasDone;
-    if (roundSlashEl) roundSlashEl.hidden = !hasDone;
+    if (roundDoneEl && roundDoneEl.textContent !== done) { roundDoneEl.textContent = done; bump(roundDoneEl); }
+    if (roundDoneEl) roundDoneEl.hidden = false;
+    if (roundSlashEl) roundSlashEl.hidden = false;
   }
 
   // 房间内固定身份：房主 = 玩家一，访客 = 玩家二
