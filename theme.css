@@ -82,7 +82,7 @@
   --board-grid: rgba(255, 255, 255, .24);
   --board-star: rgba(255, 255, 255, .3);
   --stone-black: #0a0a0b;
-  --stone-black-edge: rgba(255, 255, 255, .16);
+  --stone-black-edge: rgba(255, 255, 255, .22);
   --stone-white: #f5f5f7;
   --stone-white-edge: rgba(0, 0, 0, .3);
 }
