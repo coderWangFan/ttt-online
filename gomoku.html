@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>五子棋 · 联机对战</title>
+<script
+  src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"
+  onerror="this.remove();var s=document.createElement('script');s.src='https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js';document.head.appendChild(s);"></script>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --surface: #121821;
+    --surface-2: #18222f;
+    --line: #24303f;
+    --text: #e8eef6;
+    --muted: #7d8b9e;
+    --accent: #6aa6ff;
+    --warn: #f0b429;
+    --board: #16202b;
+    --grid: #2c3d4f;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    place-items: safe center;
+    padding: 22px 16px 34px;
+    background:
+      radial-gradient(900px 600px at 50% -10%, rgba(106, 166, 255, .10), transparent 62%),
+      radial-gradient(700px 520px at 110% 112%, rgba(79, 209, 197, .07), transparent 62%),
+      var(--bg);
+    color: var(--text);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+                 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .shell { width: min(100%, 460px); display: flex; flex-direction: column; gap: 12px; }
+
+  header { display: flex; align-items: center; gap: 10px; }
+  .back {
+    color: var(--muted); text-decoration: none; font-size: 18px; line-height: 1;
+    padding: 4px 6px; border-radius: 8px; transition: color .15s ease, background-color .15s ease;
+  }
+  .back:hover { color: var(--text); background: var(--surface); }
+  h1 { margin: 0; font-size: 21px; font-weight: 650; letter-spacing: .03em; flex: 1; }
+  h1 span { color: var(--muted); font-weight: 400; font-size: .7em; }
+
+  .conn { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #46566a; transition: background-color .2s ease; }
+  .dot.on { background: #3ddc97; box-shadow: 0 0 0 3px rgba(61, 220, 151, .16); }
+  .dot.wait { background: var(--warn); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px; display: grid; gap: 12px;
+  }
+  .card h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .card p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+
+  .join { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  input[type="text"] {
+    appearance: none; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font: inherit; font-size: 15px; letter-spacing: .28em; text-transform: uppercase;
+    padding: 10px 12px; min-width: 0;
+  }
+  input[type="text"]::placeholder { letter-spacing: .1em; color: #55637a; }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .btn {
+    appearance: none; border: 0; font: inherit; font-size: 14px; font-weight: 600;
+    padding: 11px 16px; border-radius: 11px; cursor: pointer;
+    transition: transform .12s ease, background-color .16s ease, border-color .16s ease, color .16s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--text); color: #0b0f14; }
+  .btn-primary:hover { background: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); font-weight: 500; font-size: 13px; }
+  .btn-ghost:hover { color: var(--text); border-color: #33465c; }
+
+  .scoreboard {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin: 0; overflow: hidden;
+  }
+  .score { padding: 8px 6px 9px; text-align: center; }
+  .score + .score { border-left: 1px solid var(--line); }
+  .score dt { margin: 0 0 2px; font-size: 11px; letter-spacing: .1em; color: var(--muted); }
+  .score dd { margin: 0; font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .score.is-me dd { color: #8fd6ff; }
+  .score.is-opp dd { color: #ffd79a; }
+
+  .board-wrap { position: relative; width: 100%; }
+  canvas {
+    width: 100%; aspect-ratio: 1 / 1; display: block;
+    border-radius: 18px; border: 1px solid var(--line);
+    background: var(--board);
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  canvas.is-over { cursor: default; }
+
+  .status-wrap { display: grid; gap: 4px; text-align: center; min-height: 46px; align-content: center; }
+  .status { font-size: 16px; font-weight: 600; transition: color .2s ease; }
+  .status[data-tone="win"] { color: #8fd6ff; }
+  .status[data-tone="lose"] { color: #ffd79a; }
+  .status[data-tone="wait"] { color: var(--warn); }
+  .detail { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+
+  .actions { display: grid; gap: 9px; }
+  .actions-row { display: grid; grid-template-columns: 1fr auto; gap: 9px; }
+
+  .notice {
+    border: 1px solid rgba(240, 180, 41, .35); background: rgba(240, 180, 41, .07);
+    color: #e8c877; font-size: 12.5px; line-height: 1.6; border-radius: 12px; padding: 10px 12px;
+    overflow-wrap: anywhere;
+  }
+  .notice[data-kind="info"] { border-color: rgba(106, 166, 255, .32); background: rgba(106, 166, 255, .07); color: #a9c9ff; }
+
+  .hint { margin: 0; text-align: center; font-size: 11.5px; color: #5d6a7c; line-height: 1.6; }
+  .room-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; color: var(--text); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn, .status, .dot { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <a class="back" href="./" aria-label="返回入口">←</a>
+      <h1>五子棋 <span>/ 联机</span></h1>
+      <span class="conn"><span class="dot" id="dot"></span><span id="conn-text">未连接</span></span>
+    </header>
+
+    <section class="card" id="lobby">
+      <h2>和朋友下一局</h2>
+      <p>一个人点「创建房间」，把链接发给对方；对方打开链接就自动进同一间房。黑棋先手，连成五子者胜。</p>
+      <div class="notice" id="local-warn" hidden></div>
+      <button type="button" class="btn btn-primary" id="create-btn">创建房间</button>
+      <div class="join">
+        <input type="text" id="code-input" maxlength="5" placeholder="输入房间码" autocomplete="off" spellcheck="false" />
+        <button type="button" class="btn btn-ghost" id="join-btn">加入</button>
+      </div>
+    </section>
+
+    <div id="game" hidden>
+      <dl class="scoreboard" aria-label="比分">
+        <div class="score is-me"><dt>你</dt><dd id="score-me">0</dd></div>
+        <div class="score"><dt>平局</dt><dd id="score-draw">0</dd></div>
+        <div class="score is-opp"><dt>对方</dt><dd id="score-opp">0</dd></div>
+      </dl>
+
+      <div class="board-wrap">
+        <canvas id="board" width="600" height="600" tabindex="0" role="application"
+                aria-label="五子棋棋盘，15 行 15 列。方向键移动，回车落子。"></canvas>
+      </div>
+
+      <div class="status-wrap">
+        <div class="status" id="status" role="status" aria-live="polite" data-tone="idle">等待对手…</div>
+        <p class="detail" id="detail">房间码 <span class="room-code" id="show-code">-----</span></p>
+      </div>
+
+      <div class="actions">
+        <div class="actions-row">
+          <button type="button" class="btn btn-primary" id="share-btn">复制邀请链接</button>
+          <button type="button" class="btn btn-ghost" id="leave-btn">退出</button>
+        </div>
+        <button type="button" class="btn btn-ghost" id="rematch-btn" hidden>再来一局</button>
+        <div class="notice" id="notice" hidden></div>
+      </div>
+    </div>
+
+    <p class="hint">双方需同时在线 · 先手按局数自动轮换</p>
+  </main>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ============================ 常量 ============================ */
+
+  const N = 15;
+  const TOTAL = N * N;
+
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const BROKERS = [
+    'wss://broker.emqx.io:8084/mqtt',
+    'wss://broker.hivemq.com:8884/mqtt'
+  ];
+  const TOPIC_ROOT = 'goose/gmk/v1/';
+  const ME_ID = 'g' + Math.random().toString(36).slice(2, 10);
+  const PING_MS = 5000;
+  const OFFLINE_MS = 13000;
+
+  const BLACK = 'B';
+  const WHITE = 'W';
+  const DIRS = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+  /* ============================ DOM ============================ */
+
+  const $ = (id) => document.getElementById(id);
+  const lobbyEl = $('lobby');
+  const gameEl = $('game');
+  const canvas = $('board');
+  const ctx = canvas.getContext('2d');
+  const statusEl = $('status');
+  const detailEl = $('detail');
+  const codeEl = $('show-code');
+  const dotEl = $('dot');
+  const connTextEl = $('conn-text');
+  const noticeEl = $('notice');
+  const rematchBtn = $('rematch-btn');
+  const shareBtn = $('share-btn');
+  const scoreEls = { me: $('score-me'), draw: $('score-draw'), opp: $('score-opp') };
+
+  /* ============================ 状态 ============================ */
+
+  const S = {
+    mode: 'lobby',
+    code: '',
+    role: '',
+    round: 0,
+    myMark: BLACK,
+    oppMark: WHITE,
+    board: Array(TOTAL).fill(null),
+    turn: BLACK,
+    over: false,
+    lastMove: -1,
+    winLine: null,
+    score: { me: 0, draw: 0, opp: 0 },
+    oppOnline: false,
+    lastSeen: 0,
+    sentRematch: false,
+    gotRematch: false,
+    client: null,
+    connected: false,
+    pingTimer: null,
+    brokerIndex: 0,
+    brokerTries: 0
+  };
+
+  let geom = { size: 460, gap: 460 / N, pad: 460 / N / 2 };
+  let hoverIdx = -1;
+  let cursorIdx = 7 * N + 7;
+  let keyboardMode = false;
+
+  /* ============================ 工具 ============================ */
+
+  const other = (m) => (m === BLACK ? WHITE : BLACK);
+  const markName = (m) => (m === BLACK ? '黑' : '白');
+
+  function makeCode() {
+    let s = '';
+    for (let i = 0; i < 5; i++) s += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    return s;
+  }
+
+  function setStatus(text, tone) {
+    statusEl.textContent = text;
+    statusEl.dataset.tone = tone || 'idle';
+  }
+
+  function setDetail(html) { detailEl.innerHTML = html; }
+
+  function setNotice(text, kind) {
+    if (text) {
+      noticeEl.textContent = text;
+      noticeEl.dataset.kind = kind || 'warn';
+      noticeEl.hidden = false;
+    } else {
+      noticeEl.hidden = true;
+      noticeEl.textContent = '';
+    }
+  }
+
+  function setConn(state, text) {
+    dotEl.className = 'dot' + (state === 'on' ? ' on' : state === 'wait' ? ' wait' : '');
+    connTextEl.textContent = text;
+  }
+
+  function renderScore() {
+    scoreEls.me.textContent = S.score.me;
+    scoreEls.draw.textContent = S.score.draw;
+    scoreEls.opp.textContent = S.score.opp;
+  }
+
+  function isPublicUrl() {
+    if (location.protocol === 'file:') return false;
+    const h = location.hostname || '';
+    return !(h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '[::1]' || h === '::1');
+  }
+
+  /* ============================ 规则 ============================ */
+
+  function winLineAt(board, idx, mark) {
+    const r0 = Math.floor(idx / N);
+    const c0 = idx % N;
+
+    for (let d = 0; d < DIRS.length; d++) {
+      const dr = DIRS[d][0];
+      const dc = DIRS[d][1];
+      const line = [idx];
+
+      for (let s = 1; s < 5; s++) {
+        const r = r0 + dr * s;
+        const c = c0 + dc * s;
+        if (r < 0 || r >= N || c < 0 || c >= N) break;
+        if (board[r * N + c] !== mark) break;
+        line.push(r * N + c);
+      }
+      for (let s = 1; s < 5; s++) {
+        const r = r0 - dr * s;
+        const c = c0 - dc * s;
+        if (r < 0 || r >= N || c < 0 || c >= N) break;
+        if (board[r * N + c] !== mark) break;
+        line.unshift(r * N + c);
+      }
+      if (line.length >= 5) return line;
+    }
+    return null;
+  }
+
+  function getResult(board, lastIdx) {
+    if (lastIdx != null) {
+      const line = winLineAt(board, lastIdx, board[lastIdx]);
+      if (line) return { winner: board[lastIdx], line: line, reason: 'win' };
+    }
+    for (let i = 0; i < TOTAL; i++) if (!board[i]) return null;
+    return { winner: null, line: null, reason: 'full' };
+  }
+
+  /* ============================ 画布 ============================ */
+
+  function layout() {
+    const rect = canvas.getBoundingClientRect();
+    const size = Math.max(240, Math.round(rect.width || 440));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const gap = size / N;
+    geom = { size: size, gap: gap, pad: gap / 2 };
+    draw();
+  }
+
+  function posOf(index) {
+    return {
+      x: geom.pad + (index % N) * geom.gap,
+      y: geom.pad + Math.floor(index / N) * geom.gap
+    };
+  }
+
+  function draw() {
+    const { size, gap, pad } = geom;
+    ctx.clearRect(0, 0, size, size);
+
+    // 棋盘底
+    ctx.fillStyle = '#16202b';
+    ctx.fillRect(0, 0, size, size);
+
+    // 网格
+    ctx.strokeStyle = '#2c3d4f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const p = pad + i * gap;
+      ctx.moveTo(pad, p); ctx.lineTo(size - pad, p);
+      ctx.moveTo(p, pad); ctx.lineTo(p, size - pad);
+    }
+    ctx.stroke();
+
+    // 星位
+    const stars = [[3, 3], [3, 11], [11, 3], [11, 11], [7, 7]];
+    ctx.fillStyle = '#4a5f75';
+    stars.forEach(([r, c]) => {
+      ctx.beginPath();
+      ctx.arc(pad + c * gap, pad + r * gap, Math.max(1.6, gap * 0.075), 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 棋子
+    const radius = gap * 0.42;
+    for (let i = 0; i < TOTAL; i++) {
+      const mark = S.board[i];
+      if (!mark) continue;
+      drawStone(posOf(i).x, posOf(i).y, radius, mark, false);
+    }
+
+    // 最后一手
+    if (S.lastMove >= 0 && S.board[S.lastMove]) {
+      const p = posOf(S.lastMove);
+      ctx.strokeStyle = S.board[S.lastMove] === BLACK ? '#8fd6ff' : '#ffd79a';
+      ctx.lineWidth = Math.max(1.5, gap * 0.06);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius * 0.42, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 五连高亮
+    if (S.winLine) {
+      const a = posOf(S.winLine[0]);
+      const b = posOf(S.winLine[S.winLine.length - 1]);
+      ctx.strokeStyle = 'rgba(106, 166, 255, .85)';
+      ctx.lineWidth = Math.max(2, gap * 0.12);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    // 悬停 / 键盘光标预览
+    const preview = keyboardMode ? cursorIdx : hoverIdx;
+    if (preview >= 0 && !S.board[preview] && !S.over && canIPlay()) {
+      const p = posOf(preview);
+      ctx.globalAlpha = 0.35;
+      drawStone(p.x, p.y, radius, S.myMark, false);
+      ctx.globalAlpha = 1;
+      if (keyboardMode) {
+        ctx.strokeStyle = '#6aa6ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(p.x - gap / 2 + 1, p.y - gap / 2 + 1, gap - 2, gap - 2);
+      }
+    }
+  }
+
+  function drawStone(x, y, r, mark, ghost) {
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.15, x, y, r * 1.05);
+    if (mark === BLACK) {
+      g.addColorStop(0, '#3b4a5c');
+      g.addColorStop(0.55, '#141c26');
+      g.addColorStop(1, '#0a1017');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(120, 145, 170, .45)';
+      ctx.lineWidth = Math.max(0.8, r * 0.08);
+      ctx.stroke();
+    } else {
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.7, '#dfe7f0');
+      g.addColorStop(1, '#b9c6d6');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, .18)';
+      ctx.lineWidth = Math.max(0.8, r * 0.08);
+      ctx.stroke();
+    }
+    if (!ghost) {
+      ctx.fillStyle = mark === BLACK ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.75)';
+      ctx.beginPath();
+      ctx.arc(x - r * 0.3, y - r * 0.34, r * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function hitTest(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = geom.size / rect.width;
+    const x = (clientX - rect.left) * scale;
+    const y = (clientY - rect.top) * scale;
+    const col = Math.round((x - geom.pad) / geom.gap);
+    const row = Math.round((y - geom.pad) / geom.gap);
+    if (row < 0 || row >= N || col < 0 || col >= N) return -1;
+    const p = posOf(row * N + col);
+    const dist = Math.hypot(p.x - x, p.y - y);
+    if (dist > geom.gap * 0.62) return -1;
+    return row * N + col;
+  }
+
+  /* ============================ 落子 ============================ */
+
+  function canIPlay() {
+    return S.mode === 'online' && S.oppOnline && !S.over && S.turn === S.myMark;
+  }
+
+  function placeMark(index, mark) {
+    S.board[index] = mark;
+    S.lastMove = index;
+
+    const result = getResult(S.board, index);
+    if (result) { finishRound(result); draw(); return true; }
+
+    S.turn = other(mark);
+    draw();
+    return false;
+  }
+
+  function tryPlay(index) {
+    if (S.mode !== 'online') return;
+    if (!S.oppOnline) { setStatus('等待对手加入…', 'wait'); return; }
+    if (S.over) return;
+    if (S.turn !== S.myMark) return;
+    if (index < 0 || S.board[index]) return;
+
+    const ended = placeMark(index, S.myMark);
+    publish({ t: 'move', i: index, round: S.round });
+    if (ended) return;
+
+    setStatus('轮到对方了', 'idle');
+    setDetail('你执' + markName(S.myMark) + '，等对方落子。');
+  }
+
+  function finishRound(result) {
+    S.over = true;
+    S.winLine = result.line || null;
+    canvas.classList.add('is-over');
+
+    if (result.winner === S.myMark) {
+      S.score.me++;
+      setStatus('你赢了', 'win');
+      setDetail('五子连珠，赢下这局。');
+    } else if (result.winner === S.oppMark) {
+      S.score.opp++;
+      setStatus('对方赢了', 'lose');
+      setDetail('对方连成五子。');
+    } else {
+      S.score.draw++;
+      setStatus('平局', 'wait');
+      setDetail('棋盘下满，未分胜负。');
+    }
+
+    renderScore();
+    S.sentRematch = false;
+    S.gotRematch = false;
+    rematchBtn.hidden = false;
+    rematchBtn.textContent = '再来一局';
+    draw();
+  }
+
+  function resetRound() {
+    S.board = Array(TOTAL).fill(null);
+    S.turn = BLACK;
+    S.over = false;
+    S.lastMove = -1;
+    S.winLine = null;
+    S.sentRematch = false;
+    S.gotRematch = false;
+    rematchBtn.hidden = true;
+    canvas.classList.remove('is-over');
+    assignMarks();
+    draw();
+
+    if (S.myMark === BLACK) {
+      setStatus('轮到你了', 'idle');
+      setDetail('你执黑，先手。');
+    } else {
+      setStatus('等对方落子', 'idle');
+      setDetail('你执白，对方先手。');
+    }
+  }
+
+  function assignMarks() {
+    const hostMark = S.round % 2 === 0 ? BLACK : WHITE;
+    S.myMark = S.role === 'host' ? hostMark : other(hostMark);
+    S.oppMark = other(S.myMark);
+  }
+
+  /* ============================ 联机 ============================ */
+
+  function publish(msg) {
+    if (!S.client || !S.connected) return;
+    msg.f = ME_ID;
+    msg.r = S.code;
+    try {
+      S.client.publish(TOPIC_ROOT + S.code, JSON.stringify(msg), { qos: 0 });
+    } catch (err) {}
+  }
+
+  function connectBroker() {
+    if (typeof mqtt === 'undefined') {
+      setConn('', '连接库加载失败');
+      setNotice('无法加载联机库（可能被网络或代理拦截）。');
+      return;
+    }
+    const url = BROKERS[S.brokerIndex];
+    S.brokerTries++;
+    setConn('wait', '连接中…');
+
+    let settled = false;
+    const client = mqtt.connect(url, {
+      clientId: 'gmk_' + ME_ID + '_' + S.code,
+      clean: true,
+      keepalive: 30,
+      reconnectPeriod: 3000,
+      connectTimeout: 8000
+    });
+    S.client = client;
+
+    const fallback = setTimeout(() => {
+      if (settled) return;
+      try { client.end(true); } catch (err) {}
+      nextBroker();
+    }, 8000);
+
+    client.on('connect', () => {
+      settled = true;
+      clearTimeout(fallback);
+      S.connected = true;
+      setConn('wait', '等待对手…');
+      client.subscribe(TOPIC_ROOT + S.code, { qos: 0 });
+      publish({ t: 'hello', role: S.role, round: S.round });
+      startPing();
+      setNotice('');
+    });
+
+    client.on('message', (topic, payload) => {
+      let msg;
+      try { msg = JSON.parse(payload.toString()); } catch (err) { return; }
+      handleMessage(msg);
+    });
+
+    client.on('error', () => {});
+    client.on('close', () => {
+      if (S.connected) { S.connected = false; setConn('wait', '重连中…'); }
+    });
+    client.on('reconnect', () => setConn('wait', '重连中…'));
+  }
+
+  function nextBroker() {
+    S.brokerIndex = (S.brokerIndex + 1) % BROKERS.length;
+    if (S.brokerTries >= BROKERS.length) {
+      setConn('', '连不上服务器');
+      setNotice('两个公共服务器都连不上，可能是网络限制。稍后刷新页面重试。');
+      return;
+    }
+    connectBroker();
+  }
+
+  function startPing() {
+    stopPing();
+    S.pingTimer = setInterval(() => {
+      publish({ t: 'ping' });
+      if (S.oppOnline && Date.now() - S.lastSeen > OFFLINE_MS) {
+        S.oppOnline = false;
+        setConn('wait', '对方离线');
+        if (!S.over) setStatus('对方离线了', 'wait');
+      }
+    }, PING_MS);
+  }
+
+  function stopPing() {
+    if (S.pingTimer) { clearInterval(S.pingTimer); S.pingTimer = null; }
+  }
+
+  function handleMessage(msg) {
+    if (!msg || msg.f === ME_ID) return;
+    if (msg.r && msg.r !== S.code) return;
+
+    S.lastSeen = Date.now();
+    if (!S.oppOnline && msg.t !== 'bye') {
+      S.oppOnline = true;
+      setConn('on', '对方在线');
+      if (!S.over) {
+        if (S.turn === S.myMark) { setStatus('轮到你了', 'idle'); setDetail('你执' + markName(S.myMark) + '，请落子。'); }
+        else { setStatus('等对方落子', 'idle'); setDetail('你执' + markName(S.myMark) + '。'); }
+      }
+    }
+
+    switch (msg.t) {
+      case 'hello':
+        publish({ t: 'here', role: S.role, round: S.round });
+        if (S.board.some(Boolean)) publish({ t: 'state', round: S.round, board: S.board, last: S.lastMove });
+        break;
+
+      case 'here':
+        break;
+
+      case 'state':
+        if (msg.round >= S.round && !S.board.some(Boolean) && Array.isArray(msg.board)) {
+          S.round = msg.round;
+          assignMarks();
+          S.board = msg.board.slice(0, TOTAL);
+          while (S.board.length < TOTAL) S.board.push(null);
+          S.lastMove = typeof msg.last === 'number' ? msg.last : -1;
+          S.turn = countTurn(S.board);
+          const r = getResult(S.board, S.lastMove);
+          if (r) { S.over = false; finishRound(r); }
+          else {
+            draw();
+            if (S.turn === S.myMark) { setStatus('轮到你了', 'idle'); setDetail('你执' + markName(S.myMark) + '，棋局已同步。'); }
+            else { setStatus('等对方落子', 'idle'); setDetail('你执' + markName(S.myMark) + '，棋局已同步。'); }
+          }
+        }
+        break;
+
+      case 'move':
+        if (msg.round !== S.round || S.over) return;
+        if (S.turn !== S.oppMark) return;
+        if (typeof msg.i !== 'number' || msg.i < 0 || msg.i >= TOTAL || S.board[msg.i]) return;
+        {
+          const ended = placeMark(msg.i, S.oppMark);
+          if (ended) return;
+          setStatus('轮到你了', 'idle');
+          setDetail('你执' + markName(S.myMark) + '，请落子。');
+        }
+        break;
+
+      case 'rematch':
+        if (msg.round !== S.round) return;
+        S.gotRematch = true;
+        if (S.sentRematch) nextRound();
+        else {
+          rematchBtn.hidden = false;
+          rematchBtn.textContent = '对方想再来一局 · 同意';
+          setDetail('对方请求再来一局。');
+        }
+        break;
+
+      case 'bye':
+        S.oppOnline = false;
+        setConn('wait', '对方已离开');
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  function countTurn(board) {
+    let b = 0;
+    let w = 0;
+    for (let i = 0; i < TOTAL; i++) {
+      if (board[i] === BLACK) b++;
+      else if (board[i] === WHITE) w++;
+    }
+    return b > w ? WHITE : BLACK;
+  }
+
+  function requestRematch() {
+    if (!S.over) return;
+    S.sentRematch = true;
+    publish({ t: 'rematch', round: S.round });
+    rematchBtn.textContent = '等待对方同意…';
+    setDetail('已发送「再来一局」请求。');
+    if (S.gotRematch) nextRound();
+  }
+
+  function nextRound() {
+    S.round++;
+    resetRound();
+  }
+
+  /* ============================ 房间 ============================ */
+
+  function roomUrl(code) {
+    if (!isPublicUrl()) return '';
+    return location.origin + location.pathname + '?r=' + code;
+  }
+
+  function copyText(text) {
+    if (!text) return Promise.reject(new Error('empty'));
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error('copy failed'));
+      } catch (err) { reject(err); }
+    });
+  }
+
+  function showLink(text, fallbackLabel) {
+    setNotice('');
+    copyText(text).then(
+      () => setNotice('已复制：' + text, 'info'),
+      () => setNotice(fallbackLabel + '：' + text, 'info')
+    );
+  }
+
+  function startOnline(code, role) {
+    S.mode = 'online';
+    S.code = code;
+    S.role = role;
+    S.round = 0;
+    lobbyEl.hidden = true;
+    gameEl.hidden = false;
+    codeEl.textContent = code;
+    assignMarks();
+    resetRound();
+    setStatus('连接中…', 'wait');
+    connectBroker();
+    requestAnimationFrame(layout);
+  }
+
+  function createRoom() {
+    startOnline(makeCode(), 'host');
+    if (isPublicUrl()) {
+      try { history.replaceState(null, '', '?r=' + S.code); } catch (err) {}
+    }
+  }
+
+  function joinRoom(raw) {
+    const code = String(raw || '').trim().toUpperCase();
+    if (code.length !== 5) { setNotice('房间码是 5 位字母/数字。'); return; }
+    startOnline(code, 'guest');
+    if (isPublicUrl()) {
+      try { history.replaceState(null, '', '?r=' + code); } catch (err) {}
+    }
+  }
+
+  function leaveRoom() {
+    publish({ t: 'bye' });
+    stopPing();
+    if (S.client) { try { S.client.end(true); } catch (err) {} }
+    S.client = null;
+    S.connected = false;
+    S.oppOnline = false;
+    S.mode = 'lobby';
+    S.code = '';
+    gameEl.hidden = true;
+    lobbyEl.hidden = false;
+    setConn('', '未连接');
+    try { history.replaceState(null, '', location.pathname); } catch (err) {}
+  }
+
+  /* ============================ 事件 ============================ */
+
+  function bind() {
+    $('create-btn').addEventListener('click', createRoom);
+    $('join-btn').addEventListener('click', () => joinRoom($('code-input').value));
+    $('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom($('code-input').value); });
+    $('leave-btn').addEventListener('click', leaveRoom);
+    rematchBtn.addEventListener('click', requestRematch);
+
+    shareBtn.addEventListener('click', () => {
+      const url = roomUrl(S.code);
+      if (url) {
+        showLink(url, '把这个链接发给对方');
+      } else {
+        copyText(S.code).then(
+          () => setNotice('已复制房间码 ' + S.code + '。但你现在用的是本机地址，对方打不开 —— 请用公网地址打开本页。', 'warn'),
+          () => setNotice('房间码是 ' + S.code + '，但本机地址对方打不开。', 'warn')
+        );
+      }
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const idx = hitTest(e.clientX, e.clientY);
+      if (idx >= 0) tryPlay(idx);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (keyboardMode) { keyboardMode = false; }
+      const idx = hitTest(e.clientX, e.clientY);
+      if (idx !== hoverIdx) { hoverIdx = idx; draw(); }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (hoverIdx !== -1) { hoverIdx = -1; draw(); }
+    });
+
+    canvas.addEventListener('keydown', (e) => {
+      const key = e.key;
+      const row = Math.floor(cursorIdx / N);
+      const col = cursorIdx % N;
+      let nr = row;
+      let nc = col;
+
+      if (key === 'ArrowUp') nr = Math.max(0, row - 1);
+      else if (key === 'ArrowDown') nr = Math.min(N - 1, row + 1);
+      else if (key === 'ArrowLeft') nc = Math.max(0, col - 1);
+      else if (key === 'ArrowRight') nc = Math.min(N - 1, col + 1);
+      else if (key === 'Enter' || key === ' ') {
+        e.preventDefault();
+        keyboardMode = true;
+        tryPlay(cursorIdx);
+        draw();
+        return;
+      } else return;
+
+      e.preventDefault();
+      keyboardMode = true;
+      cursorIdx = nr * N + nc;
+      canvas.setAttribute('aria-label',
+        '五子棋棋盘，当前选中第 ' + (nr + 1) + ' 行第 ' + (nc + 1) + ' 列，' +
+        (S.board[cursorIdx] ? markName(S.board[cursorIdx]) + '棋' : '空') + '。回车落子。');
+      draw();
+    });
+
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => layout());
+      ro.observe(canvas);
+    } else {
+      window.addEventListener('resize', layout);
+    }
+  }
+
+  /* ============================ 启动 ============================ */
+
+  function boot() {
+    bind();
+    layout();
+
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('r') || '').toUpperCase();
+
+    if (room && room.length === 5) {
+      joinRoom(room);
+      return;
+    }
+    lobbyEl.hidden = false;
+    gameEl.hidden = true;
+
+    if (!isPublicUrl()) {
+      const warn = $('local-warn');
+      warn.hidden = false;
+      warn.dataset.kind = 'warn';
+      warn.textContent = location.protocol === 'file:'
+        ? '你现在是双击本地文件打开的 —— 链接发出去对方打不开。要联机，请用公网地址打开本页。'
+        : '你现在用的是本机地址 localhost —— 复制的链接对方打不开。要联机，请用公网地址打开本页。';
+    }
+  }
+
+  window.__gmk = {
+    S, startOnline, joinRoom, createRoom, handleMessage, getResult, winLineAt,
+    tryPlay, requestRematch, assignMarks, layout, hitTest, geomOf: () => geom, TOTAL, N
+  };
+
+  boot();
+})();
+</script>
+</body>
+</html>
