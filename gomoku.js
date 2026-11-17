@@ -25,6 +25,12 @@
   const $ = (id) => document.getElementById(id);
   const lobbyEl = $('lobby');
   const gameEl = $('game');
+  const stageEl = (function () {
+    try { return document.querySelector ? document.querySelector('.stage') : null; } catch (err) { return null; }
+  })();
+  const boardSlotEl = (function () {
+    try { return document.querySelector ? document.querySelector('.board-slot') : null; } catch (err) { return null; }
+  })();
   const canvas = $('board');
   const ctx = canvas.getContext('2d');
   const statusEl = $('status');
@@ -38,6 +44,7 @@
   const scoreEls = { me: $('score-me'), draw: $('score-draw'), opp: $('score-opp') };
   const roundNowEl = $('round-now');
   const roundDoneEl = $('round-done');
+  const roundSlashEl = $('round-slash');
   const chatEl = $('chat');
   const chatListEl = $('chat-list');
   const chatEmptyEl = $('chat-empty');
@@ -147,7 +154,14 @@
     const now = String(S.round + 1);
     const done = String(S.score.me + S.score.draw + S.score.opp);
     if (roundNowEl && roundNowEl.textContent !== now) { roundNowEl.textContent = now; bump(roundNowEl); }
-    if (roundDoneEl && roundDoneEl.textContent !== done) { roundDoneEl.textContent = done; bump(roundDoneEl); }
+    // 还没打完一局就只显示「当前第几局」，不显示 0/1 那种令人迷惑的写法
+    const hasDone = done !== '0';
+    if (roundDoneEl && roundDoneEl.textContent !== done) {
+      roundDoneEl.textContent = done;
+      if (hasDone) bump(roundDoneEl);
+    }
+    if (roundDoneEl) roundDoneEl.hidden = !hasDone;
+    if (roundSlashEl) roundSlashEl.hidden = !hasDone;
   }
 
   // 房间内固定身份：房主 = 玩家一，访客 = 玩家二
@@ -210,6 +224,23 @@
     chatPeekEl.textContent = (last.own ? '你' : oppName()) + '：' + last.text;
   }
 
+  /* 面板多高：正好到棋盘下沿，永远不压棋盘（尺寸、位置都不变） */
+  function fitChatSheet() {
+    if (!stageEl || !boardSlotEl || !stageEl.style) return;
+    var narrow = true;
+    try { narrow = window.matchMedia ? window.matchMedia('(max-width: 899px)').matches : true; } catch (err) {}
+    if (!narrow || !chatExpanded) {
+      stageEl.style.removeProperty('--chat-sheet');
+      return;
+    }
+    var sr = stageEl.getBoundingClientRect();
+    var br = boardSlotEl.getBoundingClientRect();
+    var free = Math.round(sr.bottom - br.bottom - 6);
+    var h = Math.max(150, Math.min(320, free));
+    stageEl.style.setProperty('--chat-sheet', h + 'px');
+  }
+  try { window.addEventListener('resize', fitChatSheet); } catch (err) {}
+
   function setChatExpanded(on, scrollIntoView) {
     chatExpanded = !!on;
     if (chatEl) {
@@ -217,6 +248,7 @@
       if (chatExpanded) chatEl.classList.remove('has-new');
     }
     if (chatToggleEl) chatToggleEl.setAttribute('aria-expanded', chatExpanded ? 'true' : 'false');
+    fitChatSheet();
     if (chatExpanded) {
       scrollChatToEnd();
       // 展开后等高度动画走完，把输入框带进视野（只是位置变化，棋盘大小不动）
@@ -225,13 +257,29 @@
           const form = document.getElementById('chat-form');
           const target = form || chatEl;
           if (target && target.scrollIntoView) {
-            try { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (err) {}
+            try { target.scrollIntoView({ block: 'end', behavior: 'smooth' }); } catch (err) {}
           }
         };
         setTimeout(reveal, 330);
       }
     }
   }
+
+  /* 对局中给外壳上锁：窄屏整页固定一屏，消息区怎么收放都不会撑出页面滚动条 */
+  (function watchShell() {
+    var wrapEl = null;
+    try {
+      if (document.querySelector) wrapEl = document.querySelector('.wrap--game');
+    } catch (err) {}
+    if (!wrapEl || !gameEl) return;
+    var sync = function () { wrapEl.classList.toggle('is-playing', !gameEl.hidden); };
+    sync();
+    if (window.MutationObserver) {
+      try {
+        new MutationObserver(sync).observe(gameEl, { attributes: true, attributeFilter: ['hidden'] });
+      } catch (err) {}
+    }
+  })();
 
   function clearChat() {
     S.chat = [];
