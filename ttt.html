@@ -16,14 +16,9 @@
   })();
 </script>
 <link rel="stylesheet" href="./theme.css" />
-<style>
-  #game { display: flex; flex-direction: column; gap: 16px; }
-  .display .badge { vertical-align: middle; margin-left: 4px; position: relative; top: -4px; }
-  #lobby .actions-row .btn--ghost { min-width: 84px; }
-</style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap wrap--game">
     <nav class="nav">
       <a class="icon-btn" href="./" aria-label="返回入口">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -31,7 +26,14 @@
         </svg>
       </a>
       <span class="spacer"></span>
-      <span class="pill"><span class="dot" id="dot"></span><span id="conn-text">未连接</span></span>
+      <button class="code-chip" id="code-chip" type="button" hidden aria-label="复制邀请链接">
+        <span class="room-code" id="show-code">-----</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="10.5" height="10.5" rx="2.6" />
+          <path d="M15 6.6A2.6 2.6 0 0 0 12.4 4H6.6A2.6 2.6 0 0 0 4 6.6v5.8A2.6 2.6 0 0 0 6.6 15" />
+        </svg>
+      </button>
       <button class="icon-btn theme-btn" id="theme-btn" type="button" aria-label="切换深色外观">
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
           <circle cx="12" cy="12" r="4.1" />
@@ -43,14 +45,12 @@
       </button>
     </nav>
 
-    <div class="title-block">
-      <h1 class="display">井字棋 <span class="badge" id="mode-label">联机</span></h1>
-      <p class="subtitle">三连成线 · 和朋友的实时对局</p>
-    </div>
-
-    <section class="card" id="lobby">
-      <h2>开一局</h2>
-      <p>点「创建房间」，把邀请链接发给对方；他打开就自动进同一间房。</p>
+    <section class="card lobby" id="lobby">
+      <header class="lobby-head">
+        <h1 class="lobby-title">井字棋</h1>
+        <p class="lobby-sub">3 × 3 · 三连成线即胜</p>
+      </header>
+      <p class="lobby-note">点「创建房间」，把邀请链接发给对方；他打开就自动进同一间房。</p>
       <div class="notice" id="local-warn" hidden></div>
       <button type="button" class="btn btn--primary btn--wide" id="create-btn">创建房间</button>
       <div class="actions-row">
@@ -60,58 +60,88 @@
       </div>
     </section>
 
-    <div id="game" hidden>
-      <dl class="scoreboard" id="scoreboard" aria-label="比分">
-        <div class="score is-me"><dt>你</dt><dd id="score-me">0</dd></div>
-        <div class="score"><dt>平局</dt><dd id="score-draw">0</dd></div>
-        <div class="score is-opp"><dt>对方</dt><dd id="score-opp">0</dd></div>
-      </dl>
+    <section id="game" hidden>
+      <div class="stage">
+        <div class="stage-main">
+          <header class="stage-head">
+            <div class="title-row">
+              <h2 class="game-title">井字棋</h2>
+              <span class="badge" id="mode-label">联机</span>
+              <span class="turn-conn" id="conn-text">离线</span>
+            </div>
 
-      <div class="roundbar" id="roundbar" aria-live="polite">
-        <span>第 <b id="round-now">1</b> 局</span>
-        <span class="rb-sep" aria-hidden="true"></span>
-        <span>已完成 <b id="round-done">0</b> 局</span>
-      </div>
+          <dl class="scoreboard" id="scoreboard" aria-label="比分与局数">
+            <div class="score is-me"><dt>你</dt><dd id="score-me">0</dd></div>
+            <div class="score"><dt>平局</dt><dd id="score-draw">0</dd></div>
+            <div class="score is-opp"><dt>对方</dt><dd id="score-opp">0</dd></div>
+            <div class="score is-round">
+              <dt>局数</dt>
+              <dd><span id="round-done">0</span><i class="rb-slash">/</i><span id="round-now">1</span></dd>
+            </div>
+          </dl>
 
-      <div class="ttt" id="board" role="group" aria-label="井字棋棋盘，三行三列"></div>
+            <div class="stage-status">
+              <div class="turn-row">
+                <span class="dot" id="dot"></span>
+                <span class="turn-text" id="status" role="status" aria-live="polite" data-tone="idle">等待对手…</span>
+              </div>
+              <p class="turn-sub" id="detail">等待开始</p>
+            </div>
+          </header>
 
-      <div class="status-wrap">
-        <div class="status" id="status" role="status" aria-live="polite" data-tone="idle">等待对手…</div>
-        <p class="detail" id="detail">房间码 <span class="room-code" id="show-code">-----</span></p>
-      </div>
+          <div class="board-slot" id="board-slot">
+            <div class="ttt" id="board" role="group" aria-label="井字棋棋盘，三行三列"></div>
+          </div>
 
-      <div class="actions">
-        <div class="actions-row">
-          <button type="button" class="btn btn--primary" id="share-btn">复制邀请链接</button>
-          <button type="button" class="btn btn--ghost" id="leave-btn">退出</button>
+          <div class="actions">
+            <button type="button" class="btn btn--primary" id="share-btn">复制邀请链接</button>
+            <button type="button" class="btn btn--primary" id="rematch-btn" hidden>再来一局</button>
+            <button type="button" class="btn btn--quiet" id="leave-btn">退出</button>
+            <p class="hint" id="hint">双方需同时在线 · 先手按局数轮换</p>
+          </div>
         </div>
-        <button type="button" class="btn btn--ghost btn--wide" id="rematch-btn" hidden>再来一局</button>
-        <div class="notice" id="notice" hidden></div>
+
+        <aside class="chat" id="chat" aria-label="房间消息">
+          <header class="chat-head">
+            <h2 class="chat-title">房间消息</h2>
+            <p class="chat-sub">退出即清空</p>
+            <button class="chat-toggle" id="chat-toggle" type="button" aria-expanded="false" aria-label="展开或收起消息">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 15l6-6 6 6" />
+              </svg>
+            </button>
+          </header>
+          <p class="chat-peek" id="chat-peek">还没有消息</p>
+          <div class="chat-list is-empty" id="chat-list" role="log" aria-live="polite" aria-relevant="additions">
+            <div class="chat-spacer" aria-hidden="true"></div>
+            <div class="chat-empty" id="chat-empty">
+              <span class="chat-empty-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.5 11.7c0 3.9-3.8 7-8.5 7-1 0-2-.15-2.9-.42L4 20l1.35-3.6a6.7 6.7 0 0 1-1.85-4.7c0-3.9 3.8-7 8.5-7s8.5 3.1 8.5 7Z" />
+                </svg>
+              </span>
+              <p class="chat-empty-title">还没有消息</p>
+              <p class="chat-empty-sub">发一句打个招呼</p>
+            </div>
+          </div>
+          <form class="chat-form" id="chat-form" autocomplete="off">
+            <input class="chat-input" id="chat-input" type="text" maxlength="80"
+                   placeholder="说点什么…" enterkeyhint="send" aria-label="消息内容" />
+            <button class="chat-send" id="chat-send" type="submit" aria-label="发送" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4.5 12h13" /><path d="M12 5.8 18.2 12 12 18.2" />
+              </svg>
+            </button>
+          </form>
+        </aside>
       </div>
-
-      <section class="chat" id="chat" aria-label="房间消息">
-        <header class="chat-head">
-          <span class="chat-title">房间消息</span>
-          <span class="chat-note">仅房间内可见 · 退出即清空</span>
-        </header>
-        <div class="chat-list" id="chat-list" role="log" aria-live="polite" aria-relevant="additions">
-          <p class="chat-empty" id="chat-empty">还没有消息，打个招呼吧</p>
-        </div>
-        <form class="chat-form" id="chat-form" autocomplete="off">
-          <input class="chat-input" id="chat-input" type="text" maxlength="80"
-                 placeholder="说点什么…" enterkeyhint="send" aria-label="消息内容" />
-          <button class="chat-send" id="chat-send" type="submit" aria-label="发送" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4.5 12h13" /><path d="M12 5.8 18.2 12 12 18.2" />
-            </svg>
-          </button>
-        </form>
-      </section>
-
-      <p class="hint" id="hint">双方需同时在线 · 先手按局数自动轮换</p>
-    </div>
+    </section>
   </div>
+
+  <div class="notice notice--toast" id="notice" hidden></div>
 
 <script async src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"
         onerror="var s=document.createElement('script');s.src='https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js';document.head.appendChild(s);this.remove();"></script>
