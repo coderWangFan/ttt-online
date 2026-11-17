@@ -631,50 +631,50 @@ body {
 }
 .code-chip.is-copied svg { color: var(--green); }
 
-/* 提示条：lobby 里是静态说明 */
-/* 通知：圆点 + 一句话，跟顶部横幅长一个样，只是不悬浮 */
+/* 通知：iOS 风格的小白卡，一句话，没有任何底色 */
 .notice {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr);
-  gap: 10px;
-  align-items: baseline;
-  font-size: 12.5px;
-  line-height: 1.6;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--warn-soft);
-  color: var(--warn-ink);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -.01em;
+  padding: 13px 16px;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--label);
   overflow-wrap: anywhere;
-  transition: background-color .3s var(--ease), color .3s var(--ease);
 }
-.notice::before {
+.notice::before { content: none; }
+.notice[data-kind="warn"]::before {
   content: '';
-  justify-self: start;
-  width: 8px;
-  height: 8px;
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 6.5px;
   border-radius: 50%;
   background: var(--orange);
-  transform: translateY(-1px);
 }
-.notice[data-kind="info"]::before { background: var(--blue); }
-.notice[data-kind="info"] { background: var(--info-soft); color: var(--info-ink); }
 
-/* 对局里的提示：浮在底部，几秒自己消失，绝不挤压棋盘 */
-/* 顶部横幅通知：从顶边滑下来，自己消失，压不住任何东西 */
+/* 右上角通知：从顶边飘下来，几秒自己消失，压不住任何东西 */
 .notice--toast {
   position: fixed;
   z-index: 80;
   top: calc(12px + env(safe-area-inset-top));
   right: 14px;
-  width: min(80vw, 400px);
-  background: rgba(255, 255, 255, .97);
+  width: min(84vw, 380px);
+  background: rgba(255, 255, 255, .94);
   color: var(--label);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .16), 0 0 0 .5px var(--separator);
-  -webkit-backdrop-filter: blur(24px) saturate(1.7);
-  backdrop-filter: blur(24px) saturate(1.7);
-  animation: bannerIn .38s var(--ease) both;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .1), 0 0 0 .5px rgba(0, 0, 0, .07);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+  animation: bannerIn .34s var(--ease) both;
 }
-[data-theme="dark"] .notice--toast { background: rgba(28, 28, 30, .97); }
+[data-theme="dark"] .notice--toast {
+  background: rgba(28, 28, 30, .94);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .5), 0 0 0 .5px rgba(255, 255, 255, .1);
+}
 
 
 @keyframes bannerIn {
