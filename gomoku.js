@@ -44,6 +44,10 @@
   const chatFormEl = $('chat-form');
   const chatInputEl = $('chat-input');
   const chatSendEl = $('chat-send');
+  const chatToggleEl = $('chat-toggle');
+  const chatPeekEl = $('chat-peek');
+  const chipEl = $('code-chip');
+
 
   /* ============================ 状态 ============================ */
 
@@ -98,11 +102,17 @@
 
   function setDetail(html) { detailEl.innerHTML = html; }
 
+  let noticeTimer = 0;
+
+  // 提示只做「提示」，不占版面：浮在底部，几秒后自己消失
   function setNotice(text, kind) {
+    if (!noticeEl) return;
+    if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = 0; }
     if (text) {
       noticeEl.textContent = text;
       noticeEl.dataset.kind = kind || 'warn';
       noticeEl.hidden = false;
+      noticeTimer = setTimeout(function () { noticeEl.hidden = true; noticeTimer = 0; }, 5200);
     } else {
       noticeEl.hidden = true;
       noticeEl.textContent = '';
@@ -145,15 +155,29 @@
   const myName = () => nameOfRole(S.role);
   const oppName = () => nameOfRole(S.role === 'host' ? 'guest' : 'host');
 
+  // 列表滚上去时给顶部加一层渐隐，避免气泡被硬切
+  function syncChatScroll() {
+    if (!chatListEl) return;
+    chatListEl.classList.toggle('is-scrolled', chatListEl.scrollTop > 2);
+  }
+
   function scrollChatToEnd() {
     try { chatListEl.scrollTop = chatListEl.scrollHeight; } catch (err) {}
+    syncChatScroll();
   }
 
   function appendChat(text, own) {
     if (!chatListEl) return;
     if (chatEmptyEl) chatEmptyEl.hidden = true;
+    chatListEl.classList.remove('is-empty');
     const row = document.createElement('div');
     row.className = 'msg ' + (own ? 'from-me' : 'from-other');
+    const prev = S.chat[S.chat.length - 1];
+    if (prev && prev.own === !!own) {
+      row.classList.add('is-group');
+      const last = chatListEl.lastElementChild;
+      if (last && last.classList.contains('msg')) last.classList.add('is-mid');
+    }
     const name = document.createElement('span');
     name.className = 'msg-name';
     name.textContent = own ? myName() : oppName();
@@ -165,12 +189,58 @@
     chatListEl.appendChild(row);
     S.chat.push({ own: !!own, text: text });
     scrollChatToEnd();
+    updateChatPeek();
+    if (!chatExpanded && chatEl) chatEl.classList.add('has-new');
+  }
+
+  let chatExpanded = false;
+
+  function makeSpacer() {
+    const el = document.createElement('div');
+    el.className = 'chat-spacer';
+    el.setAttribute('aria-hidden', 'true');
+    return el;
+  }
+
+  // 收起时也要能看到「谁说了最后一句」，不用点开才知道有新消息
+  function updateChatPeek() {
+    if (!chatPeekEl) return;
+    const last = S.chat[S.chat.length - 1];
+    if (!last) { chatPeekEl.textContent = '还没有消息'; return; }
+    chatPeekEl.textContent = (last.own ? '你' : oppName()) + '：' + last.text;
+  }
+
+  function setChatExpanded(on, scrollIntoView) {
+    chatExpanded = !!on;
+    if (chatEl) {
+      chatEl.classList.toggle('is-collapsed', !chatExpanded);
+      if (chatExpanded) chatEl.classList.remove('has-new');
+    }
+    if (chatToggleEl) chatToggleEl.setAttribute('aria-expanded', chatExpanded ? 'true' : 'false');
+    if (chatExpanded) {
+      scrollChatToEnd();
+      // 展开后等高度动画走完，把输入框带进视野（只是位置变化，棋盘大小不动）
+      if (scrollIntoView) {
+        const reveal = function () {
+          const form = document.getElementById('chat-form');
+          const target = form || chatEl;
+          if (target && target.scrollIntoView) {
+            try { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (err) {}
+          }
+        };
+        setTimeout(reveal, 330);
+      }
+    }
   }
 
   function clearChat() {
     S.chat = [];
     if (!chatListEl) return;
     chatListEl.innerHTML = '';
+    chatListEl.appendChild(makeSpacer());
+    chatListEl.classList.remove('is-scrolled', 'has-new');
+    chatListEl.classList.add('is-empty');
+    updateChatPeek();
     if (chatEmptyEl) { chatEmptyEl.hidden = false; chatListEl.appendChild(chatEmptyEl); }
   }
 
@@ -450,6 +520,11 @@
     S.gotRematch = false;
     rematchBtn.hidden = false;
     rematchBtn.textContent = '再来一局';
+    rematchBtn.classList.add('btn--primary');
+    rematchBtn.classList.remove('btn--ghost');
+    shareBtn.classList.remove('btn--primary');
+    shareBtn.classList.add('btn--ghost');
+    // 局末：主按钮让位给「再来一局」
     draw();
   }
 
@@ -463,6 +538,10 @@
     S.gotRematch = false;
     rematchBtn.hidden = true;
     canvas.classList.remove('is-over');
+    rematchBtn.classList.remove('btn--primary');
+    rematchBtn.classList.add('btn--ghost');
+    shareBtn.classList.add('btn--primary');
+    shareBtn.classList.remove('btn--ghost');
     assignMarks();
     renderRounds();
     draw();
@@ -500,13 +579,13 @@
         setTimeout(function () { connectBroker((attempt || 0) + 1); }, 200);
         return;
       }
-      setConn('', '连接库加载失败');
+      setConn('', '连不上');
       setNotice('无法加载联机库（可能被网络或公司代理拦截）。请检查网络后刷新页面重试。');
       return;
     }
     const url = BROKERS[S.brokerIndex];
     S.brokerTries++;
-    setConn('wait', '连接中…');
+    setConn('wait', '连接中');
 
     let settled = false;
     const client = mqtt.connect(url, {
@@ -528,7 +607,7 @@
       settled = true;
       clearTimeout(fallback);
       S.connected = true;
-      setConn('wait', '等待对手…');
+      setConn('wait', '等待中');
       client.subscribe(TOPIC_ROOT + S.code, { qos: 0 });
       publish({ t: 'hello', role: S.role, round: S.round });
       startPing();
@@ -581,7 +660,7 @@
     S.lastSeen = Date.now();
     if (!S.oppOnline && msg.t !== 'bye') {
       S.oppOnline = true;
-      setConn('on', '对方在线');
+      setConn('on', '在线');
       if (!S.over) {
         if (S.turn === S.myMark) { setStatus('轮到你了', 'idle'); setDetail('你执' + markName(S.myMark) + '，请落子。'); }
         else { setStatus('等对方落子', 'idle'); setDetail('你执' + markName(S.myMark) + '。'); }
@@ -720,11 +799,16 @@
     S.round = 0;
     clearChat();
     updateChatSend();
+    var narrow = false;
+    try { narrow = window.matchMedia('(max-width: 899px)').matches; } catch (err) {}
+    setChatExpanded(!narrow, false);
+    updateChatPeek();
     lobbyEl.hidden = true;
     gameEl.hidden = false;
     gameEl.classList.remove('view-in');
     void gameEl.offsetWidth;
     gameEl.classList.add('view-in');
+    if (chipEl) chipEl.hidden = false;
     codeEl.textContent = code;
     assignMarks();
     resetRound();
@@ -762,7 +846,8 @@
     updateChatSend();
     gameEl.hidden = true;
     lobbyEl.hidden = false;
-    setConn('', '未连接');
+    if (chipEl) { chipEl.hidden = true; chipEl.classList.remove('is-copied'); }
+    setConn('', '离线');
     try { history.replaceState(null, '', location.pathname); } catch (err) {}
   }
 
@@ -775,7 +860,16 @@
     $('leave-btn').addEventListener('click', leaveRoom);
     rematchBtn.addEventListener('click', requestRematch);
 
+    if (chipEl) {
+      chipEl.addEventListener('click', () => {
+        shareBtn.click();
+        chipEl.classList.add('is-copied');
+        setTimeout(() => chipEl.classList.remove('is-copied'), 1400);
+      });
+    }
     if (chatInputEl) chatInputEl.addEventListener('input', updateChatSend);
+    if (chatListEl) chatListEl.addEventListener('scroll', syncChatScroll, { passive: true });
+    if (chatToggleEl) chatToggleEl.addEventListener('click', function () { setChatExpanded(!chatExpanded, true); });
     if (chatFormEl) {
       chatFormEl.addEventListener('submit', (e) => {
         e.preventDefault();
