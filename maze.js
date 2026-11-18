@@ -698,7 +698,29 @@
       ctx.fillRect(s.goal.x * cell, s.goal.y * cell, cell, cell);
     });
 
-    // 墙：每格只画 N / W，末行补 S、末列补 E
+    // 轨迹先画在墙下面：粗轨迹盖住墙线时，会误看成「这边能拐进去」
+    if (S.trail.length > 1) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < S.trail.length; i++) {
+        const p = cellCenter(S.trail[i].x, S.trail[i].y);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = 'rgba(0,122,255,.12)';
+      ctx.lineWidth = cell * 0.28;
+      ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < S.trail.length; i++) {
+        const p = cellCenter(S.trail[i].x, S.trail[i].y);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = 'rgba(0,122,255,.34)';
+      ctx.lineWidth = cell * 0.10;
+      ctx.stroke();
+    }
+
+    // 墙：每格只画 N / W，末行补 S、末列补 E（画在轨迹之上，开口/堵口一眼能分清）
     ctx.strokeStyle = C.line;
     ctx.lineWidth = Math.max(1.5, cell * 0.10);
     ctx.lineCap = 'round';
@@ -722,28 +744,6 @@
     ctx.moveTo(m.halfW * cell, 0);
     ctx.lineTo(m.halfW * cell, geom.h);
     ctx.stroke();
-
-    // 自己的轨迹
-    if (S.trail.length > 1) {
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      for (let i = 0; i < S.trail.length; i++) {
-        const p = cellCenter(S.trail[i].x, S.trail[i].y);
-        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-      }
-      ctx.strokeStyle = 'rgba(0,122,255,.10)';
-      ctx.lineWidth = cell * 0.46;
-      ctx.stroke();
-      ctx.beginPath();
-      for (let i = 0; i < S.trail.length; i++) {
-        const p = cellCenter(S.trail[i].x, S.trail[i].y);
-        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-      }
-      ctx.strokeStyle = 'rgba(0,122,255,.30)';
-      ctx.lineWidth = cell * 0.12;
-      ctx.stroke();
-    }
 
     // 终点标记（自己这边）
     const g = cellCenter(S.goal.x, S.goal.y);
