@@ -1365,3 +1365,60 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .xq-piece, .xq-dot, .xq-mark { transition: none; animation: none; }
 }
+
+/* ---------- maze race ---------- */
+/* 12×15 竖长：吃满中间 grid 行，由 JS 按槽位缩放，禁止溢出盖住上下文案/按钮 */
+.wrap--mz {
+  --board-size: min(100%, 420px);
+}
+.wrap--mz .stage-main {
+  min-height: 0;
+}
+.wrap--mz .board-slot {
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.wrap--mz .board-slot > .mz-frame {
+  width: auto;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+}
+.wrap--mz .actions {
+  position: relative;
+  z-index: 2;
+  background: var(--surface);
+}
+.wrap--mz .stage-head {
+  position: relative;
+  z-index: 2;
+  background: var(--surface);
+}
+.mz-frame { position: relative; border-radius: 18px; line-height: 0; max-width: 100%; max-height: 100%; }
+.mz-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 18px;
+  background: var(--board-bg);
+  box-shadow: 0 0 0 .5px var(--separator-2);
+  touch-action: none;
+  cursor: grab;
+}
+.mz-canvas:active { cursor: grabbing; }
+.mz-canvas:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.mz-canvas.is-over { cursor: default; }
+
+.mz-overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.mz-count {
+  font-size: 64px; font-weight: 600; letter-spacing: .02em;
+  color: var(--label);
+  text-shadow: 0 2px 18px rgba(0,0,0,.12);
+}
+.mz-count.is-pop { animation: mzPop .42s var(--ease); }
+@keyframes mzPop { from { transform: scale(.7); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .mz-count { animation: none } }
