@@ -1314,9 +1314,11 @@
     });
 
     // 滑动步进
+    let swipeMoved = false;
     canvas.addEventListener('pointerdown', (e) => {
       if (S.phase !== 'racing') return;
       swipe = { x: e.clientX, y: e.clientY };
+      swipeMoved = false;
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       try { canvas.focus({ preventScroll: true }); } catch (err) { try { canvas.focus(); } catch (e2) {} }
     });
@@ -1331,6 +1333,7 @@
       else dir = dy > 0 ? 2 : 0;
       const moved = tryMove(dir);
       if (moved) {
+        swipeMoved = true;
         if (dir === 1) swipe.x += thr;
         else if (dir === 3) swipe.x -= thr;
         else if (dir === 2) swipe.y += thr;
@@ -1344,9 +1347,10 @@
     canvas.addEventListener('pointerup', clearSwipe);
     canvas.addEventListener('pointercancel', clearSwipe);
 
-    // 点击相邻格
+    // 点击相邻格（刚滑过一步就别再点进一格，否则会连跳）
     canvas.addEventListener('click', (e) => {
       if (S.phase !== 'racing' || S.paused) return;
+      if (swipeMoved) { swipeMoved = false; return; }
       const c = cellAt(e.clientX, e.clientY);
       if (!c) return;
       const dx = c.x - S.pos.x;
@@ -1360,9 +1364,11 @@
       if (dir >= 0) tryMove(dir);
     });
 
-    // 桌面：方向键 / WASD 全局可走（输入框打字时不抢）
-    const onKeyMove = (e) => {
+    // 桌面：方向键 / WASD —— 只绑 window 一次。
+    // 以前 window + canvas 各绑一次，canvas 有焦点时按一下会走两格，路口就迈过去了。
+    window.addEventListener('keydown', (e) => {
       if (S.mode !== 'online' || S.phase !== 'racing') return;
+      if (e.repeat) return;
       const tag = (e.target && e.target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       const map = {
@@ -1372,9 +1378,7 @@
       if (!(e.key in map)) return;
       e.preventDefault();
       tryMove(map[e.key]);
-    };
-    window.addEventListener('keydown', onKeyMove);
-    canvas.addEventListener('keydown', onKeyMove);
+    });
 
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => layout());
