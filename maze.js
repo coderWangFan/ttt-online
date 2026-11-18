@@ -1364,20 +1364,30 @@
       if (dir >= 0) tryMove(dir);
     });
 
-    // 桌面：方向键 / WASD —— 只绑 window 一次。
-    // 以前 window + canvas 各绑一次，canvas 有焦点时按一下会走两格，路口就迈过去了。
+    // 桌面：方向键 / WASD
+    // 根因：按住键时焦点切到 canvas（开跑 focus / 点击棋盘）时，浏览器会再派发一次
+    // keydown 且 e.repeat === false，于是「按一下走两格」。必须按键锁存到 keyup。
+    const KEY_DIR = {
+      ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3,
+      w: 0, W: 0, d: 1, D: 1, s: 2, S: 2, a: 3, A: 3
+    };
+    const heldKeys = new Set();
     window.addEventListener('keydown', (e) => {
       if (S.mode !== 'online' || S.phase !== 'racing') return;
-      if (e.repeat) return;
       const tag = (e.target && e.target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      const map = {
-        ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3,
-        w: 0, W: 0, d: 1, D: 1, s: 2, S: 2, a: 3, A: 3
-      };
-      if (!(e.key in map)) return;
+      if (!(e.key in KEY_DIR)) return;
       e.preventDefault();
-      tryMove(map[e.key]);
+      if (heldKeys.has(e.key)) return;
+      heldKeys.add(e.key);
+      tryMove(KEY_DIR[e.key]);
+    });
+    window.addEventListener('keyup', (e) => {
+      heldKeys.delete(e.key);
+    });
+    window.addEventListener('blur', () => { heldKeys.clear(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) heldKeys.clear();
     });
 
     if (window.ResizeObserver) {
